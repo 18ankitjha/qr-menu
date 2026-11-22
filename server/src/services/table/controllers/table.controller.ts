@@ -3,7 +3,7 @@ import { SUCCESS_MESSAGES } from '../../../config/constants';
 import { sendSuccess } from '../../../utils/response.util';
 import { asyncHandler } from '../../../middlewares/error.middleware';
 import * as TableDM from '../dm/table.dm';
-import { generateQrForNewTables } from '../utils/qr.util';
+import { generateQrForNewTables, deleteTableQr } from '../utils/qr.util';
 import { TABLE_MESSAGES } from '../constants/table.constants';
 
 // ============================================================
@@ -49,5 +49,6 @@ export const getAllTables = asyncHandler(async (req: Request, res: Response) => 
 export const deleteTable = asyncHandler(async (req: Request, res: Response) => {
   const id = req.params.id as string;
   await TableDM.deleteTable(id);
+  deleteTableQr(id);
   sendSuccess(res, null, SUCCESS_MESSAGES.TABLE_DELETED);
 });

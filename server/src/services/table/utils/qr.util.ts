@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import { CLOUDINARY_FOLDERS } from '../../../config/constants';
 import { env } from '../../../config/env';
-import { uploadQrToCloudinary } from '../../../utils/cloudinary.util';
+import { uploadQrToCloudinary, deleteImageFromCloudinary } from '../../../utils/cloudinary.util';
 import { logger } from '../../../utils/logger';
 import { ITable } from '../interfaces/table.interface';
 import { TABLE_QR } from '../constants/table.constants';
@@ -17,6 +17,14 @@ import * as TableDM from '../dm/table.dm';
  */
 export const getTableMenuUrl = (table: ITable & { qrToken: string }): string =>
   `${env.QR_BASE_URL}/menu/t/${table.qrToken}`;
+
+/** Cloudinary public ID of a table's QR (stable, so regenerating overwrites it). */
+const qrPublicId = (tableId: string): string => `table-${tableId}`;
+
+/** Remove a deleted table's QR image from Cloudinary. Fire-and-forget, never throws. */
+export const deleteTableQr = (tableId: string): void => {
+  void deleteImageFromCloudinary(`${CLOUDINARY_FOLDERS.QR_CODES}/${qrPublicId(tableId)}`);
+};
 
 /**
  * Generate + upload + save the QR for one table. Throws on failure.
@@ -43,7 +51,7 @@ export const generateTableQr = async (
     errorCorrectionLevel: 'H',
   });
 
-  const result = await uploadQrToCloudinary(qrBuffer, CLOUDINARY_FOLDERS.QR_CODES, `table-${tableId}`);
+  const result = await uploadQrToCloudinary(qrBuffer, CLOUDINARY_FOLDERS.QR_CODES, qrPublicId(tableId));
   const updated = await TableDM.setQrCodeUrl(tableId, result.secure_url);
 
   return {

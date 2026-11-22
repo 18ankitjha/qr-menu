@@ -17,6 +17,7 @@ import {
   RestaurantStatus,
 } from '../../../config/constants';
 import { createAppError } from '../../../middlewares/error.middleware';
+import { ImageCleanupDM } from '../../upload';
 
 // ============================================================
 // Restaurant DM Layer — Business logic + Data access
@@ -154,7 +155,9 @@ export const updateRestaurant = async (
     throw createAppError(ERROR_MESSAGES.FORBIDDEN, 403);
   }
 
-  return RestaurantModel.findByIdAndUpdate(id, input, { new: true }).lean();
+  const updated = await RestaurantModel.findByIdAndUpdate(id, input, { new: true }).lean();
+  ImageCleanupDM.releaseIfReplaced(restaurant.logoUrl, updated?.logoUrl, 'logoUrl' in input);
+  return updated;
 };
 
 /**

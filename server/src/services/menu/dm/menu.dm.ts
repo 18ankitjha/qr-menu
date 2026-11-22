@@ -9,6 +9,7 @@ import { IMenuTheme } from '../../../interfaces/common.interface';
 import { ERROR_MESSAGES } from '../../../config/constants';
 import { createAppError } from '../../../middlewares/error.middleware';
 import { RestaurantDM } from '../../restaurant';
+import { ImageCleanupDM } from '../../upload';
 
 // ============================================================
 // Menu DM Layer — Business logic + Data access
@@ -108,9 +109,15 @@ export const setMenuTheme = async (
     ...themeInput,
   };
 
-  return MenuModel.findByIdAndUpdate(
+  const updated = await MenuModel.findByIdAndUpdate(
     menuId,
     { theme: updatedTheme, themeSavedAt: new Date() },
     { new: true }
   ).lean();
+  ImageCleanupDM.releaseIfReplaced(
+    menu.theme?.backgroundImageUrl,
+    updated?.theme?.backgroundImageUrl,
+    'backgroundImageUrl' in themeInput
+  );
+  return updated;
 };

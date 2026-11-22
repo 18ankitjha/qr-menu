@@ -17,6 +17,8 @@ import {
 import { MESSAGES } from '../constants';
 import type { ICategory, IDish } from '../types';
 import { MenuPreview } from '../components/MenuPreview';
+import { usePendingUpload } from '../hooks/usePendingUpload';
+import { thumbUrl } from '../utils/image';
 import './MenuBuilder.css';
 import './FormPage.css';
 
@@ -84,6 +86,8 @@ const MenuBuilder = () => {
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [previewCategories, setPreviewCategories] = useState<(ICategory & { dishes: IDish[] })[]>([]);
+  const catUpload = usePendingUpload();
+  const dishUpload = usePendingUpload();
 
   // Category form state
   const [showCatForm, setShowCatForm] = useState(false);
@@ -167,6 +171,7 @@ const MenuBuilder = () => {
     setImageUploading(true);
     try {
       const { data } = await uploadImage(file, 'categories');
+      catUpload.track(data.data.url);
       setCatForm((prev) => ({ ...prev, imageUrl: data.data.url }));
     } catch {
       setMessage('Image upload failed. Please try again.');
@@ -187,6 +192,7 @@ const MenuBuilder = () => {
         await addCategory({ ...payload, menuId: menu._id });
       }
       await fetchCategories();
+      catUpload.commit();
       setShowCatForm(false);
       setMessage(PAGE.SUCCESS_CATEGORY);
     } catch {
@@ -194,6 +200,11 @@ const MenuBuilder = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const closeCatForm = () => {
+    catUpload.discard();
+    setShowCatForm(false);
   };
 
   const handleToggleCatActive = async (cat: ICategory) => {
@@ -249,6 +260,7 @@ const MenuBuilder = () => {
     setImageUploading(true);
     try {
       const { data } = await uploadImage(file, 'dishes');
+      dishUpload.track(data.data.url);
       setDishForm((prev) => ({ ...prev, imageUrl: data.data.url }));
     } catch {
       setMessage('Image upload failed. Please try again.');
@@ -291,6 +303,7 @@ const MenuBuilder = () => {
         refreshSetup();
       }
       await fetchDishes(selectedCatId);
+      dishUpload.commit();
       setShowDishForm(false);
       setEditingDish(null);
       resetDishForm();
@@ -300,6 +313,11 @@ const MenuBuilder = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const closeDishForm = () => {
+    dishUpload.discard();
+    setShowDishForm(false);
   };
 
   const openPreview = async () => {
@@ -439,7 +457,7 @@ const MenuBuilder = () => {
               {dishes.map((dish) => (
                 <div key={dish._id} className={`dish-card ${!dish.isAvailable ? 'dish-card--unavailable' : ''}`}>
                   {dish.imageUrl && (
-                    <img src={dish.imageUrl} alt={dish.name} className="dish-image" />
+                    <img src={thumbUrl(dish.imageUrl)} alt={dish.name} className="dish-image" loading="lazy" />
                   )}
                   <div className="dish-info">
                     <div className="dish-header-row">
@@ -486,7 +504,7 @@ const MenuBuilder = () => {
 
       {/* Category Modal */}
       {showCatForm && (
-        <div className="modal-overlay" onClick={() => setShowCatForm(false)}>
+        <div className="modal-overlay" onClick={closeCatForm}>
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={handleSaveCategory}>
             <h2 className="card-title">{editingCat ? MESSAGES.EDIT : MESSAGES.ADD} Category</h2>
             <div className="form-group">
@@ -514,7 +532,7 @@ const MenuBuilder = () => {
             </div>
             <div className="btn-row">
               <button className="btn-primary" disabled={loading || imageUploading}>{loading ? MESSAGES.LOADING : MESSAGES.SAVE}</button>
-              <button type="button" className="btn-secondary" onClick={() => setShowCatForm(false)}>{MESSAGES.CANCEL}</button>
+              <button type="button" className="btn-secondary" onClick={closeCatForm}>{MESSAGES.CANCEL}</button>
             </div>
           </form>
         </div>
@@ -532,7 +550,7 @@ const MenuBuilder = () => {
 
       {/* Dish Modal */}
       {showDishForm && (
-        <div className="modal-overlay" onClick={() => setShowDishForm(false)}>
+        <div className="modal-overlay" onClick={closeDishForm}>
           <form key={dishFormKey} className="modal-card modal-card--wide" onClick={(e) => e.stopPropagation()} onSubmit={handleSaveDish}>
             <h2 className="card-title">{editingDish ? MESSAGES.EDIT : MESSAGES.ADD} Dish</h2>
             <div className="form-row">
@@ -626,7 +644,7 @@ const MenuBuilder = () => {
               <button className="btn-primary" disabled={loading || imageUploading}>
                 {imageUploading ? 'Uploading image...' : loading ? MESSAGES.LOADING : MESSAGES.SAVE}
               </button>
-              <button type="button" className="btn-secondary" onClick={() => setShowDishForm(false)}>{MESSAGES.CANCEL}</button>
+              <button type="button" className="btn-secondary" onClick={closeDishForm}>{MESSAGES.CANCEL}</button>
             </div>
           </form>
         </div>

@@ -1,6 +1,7 @@
 import { MESSAGES } from '../constants';
 import type { IDish } from '../types';
 import { money } from '../utils/format.util';
+import { thumbUrl } from '../utils/image.util';
 
 interface Props {
   dish: IDish;
@@ -23,7 +24,7 @@ const DishCard = ({ dish, tableQuantity, myQuantity, busy, onAdd, onRemoveOne }:
 
   return (
     <article className="dish-card">
-      {dish.imageUrl && <img src={dish.imageUrl} alt={dish.name} className="dish-img" loading="lazy" />}
+      {dish.imageUrl && <img src={thumbUrl(dish.imageUrl)} alt={dish.name} className="dish-img" loading="lazy" />}
       <div className="dish-body">
         <div className="dish-title-row">
           <h3 className="dish-name">{dish.name}</h3>

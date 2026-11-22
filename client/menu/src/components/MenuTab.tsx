@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { MESSAGES } from '../constants';
 import type { ICartLine, ICategoryWithDishes, IDish, ITableMenu } from '../types';
 import DishCard from './DishCard';
+import { thumbUrl } from '../utils/image.util';
 
 interface Props {
   menu: ITableMenu;
@@ -17,7 +18,7 @@ type DietFilter = 'all' | 'veg' | 'nonveg';
 const CategoryThumb = ({ category, className }: { category: ICategoryWithDishes; className: string }) => {
   const src = category.imageUrl || category.dishes.find((d) => d.imageUrl)?.imageUrl;
   return src ? (
-    <img src={src} alt="" className={className} loading="lazy" />
+    <img src={thumbUrl(src)} alt="" className={className} loading="lazy" />
   ) : (
     <span className={`${className} ${className}--initial`}>{category.name.charAt(0).toUpperCase()}</span>
   );

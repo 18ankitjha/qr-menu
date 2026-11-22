@@ -277,6 +277,10 @@ const uploadImage = (file: File, folder: string) => {
   );
 };
 
+/** Delete an uploaded image that was never saved (server keeps it if anything uses it). Best-effort. */
+const discardImage = (url: string) =>
+  api.delete(API_ENDPOINTS.UPLOAD.IMAGE, { data: { url } }).catch(() => undefined);
+
 export {
   api,
   getProfile,
@@ -333,4 +337,5 @@ export {
   removeStaff,
   getErrorMessage,
   uploadImage,
+  discardImage,
 };

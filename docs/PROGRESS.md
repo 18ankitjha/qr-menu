@@ -431,6 +431,29 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
 - Shared component: `client/admin/src/components/PayButtons.tsx`. No backend change.
 - The session rule is unchanged: generating the bill ends the table's customer session, and the next QR scan starts a new one.
 
+### 6d.5 Cloudinary free-tier hygiene (image cleanup + thumbnails)
+- **Upload path (unchanged)**: browser → `POST /upload/image` (multer, in memory) → Cloudinary stores one copy,
+  max 800px, WebP, `q_auto:good`. Mongo stores only the URL.
+- **Cleanup**: `server/src/services/upload/dm/image-cleanup.dm.ts` (`ImageCleanupDM`). `releaseImage(url)` deletes the image
+  only if the URL is ours (our cloud and a `qr-menu/{dishes,categories,logos,backgrounds}` folder) and
+  no dish, category, logo or menu background uses it. It is best-effort and never throws.
+  - Dish and category: replacing or deleting removes the old image (`dish.dm` / `category.dm`).
+  - Logo (`restaurant.dm.updateRestaurant`) and menu background (`menu.dm.setMenuTheme`): replacing or clearing removes the old image.
+  - Table delete: removes `qr-menu/qr-codes/table-<id>` (`table/utils/qr.util.ts deleteTableQr`).
+- **New API** `DELETE /upload/image { url }` (owner): discards an image that was uploaded but never saved.
+  - Admin hook `client/admin/src/hooks/usePendingUpload.ts` calls it when you cancel the dish or category form,
+    upload a second photo before saving, remove an unsaved background, leave the page, or when saving the logo fails.
+- **Thumbnails**: `thumbUrl()` (`client/menu/src/utils/image.util.ts`, `client/admin/src/utils/image.ts`) requests
+  `c_fill,w_160,h_160,f_auto,q_auto` for dish, category and logo thumbnails instead of the 800px original. This saves bandwidth, not storage.
+  Cloudinary builds the version once and caches it. One size is used everywhere, so there is a single cached copy per photo.
+- Verified against real Cloudinary and Mongo:
+  - An in-use image is kept, an unused upload is deleted (Admin API 404), and a foreign URL is ignored.
+  - The route returns 401 without a token and 400 for a bad URL.
+  - The thumbnail is served as WebP and is smaller.
+- Not done:
+  - Images orphaned before this change stay in Cloudinary (a one-off sweep can be added).
+  - Deleting a category doesn't cascade to its dishes (pre-existing).
+
 ---
 
 ## 7. Decisions made

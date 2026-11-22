@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { setMenuTheme, getCategories, getDishes, updateRestaurant, uploadImage } from '../services/api';
+import { setMenuTheme, getCategories, getDishes, updateRestaurant, uploadImage, discardImage } from '../services/api';
 import { MESSAGES } from '../constants';
 import type { IMenuTheme, ICategory, IDish } from '../types';
+import { usePendingUpload } from '../hooks/usePendingUpload';
 import './FormPage.css';
 
 // ============================================================
@@ -54,6 +55,7 @@ const Settings = () => {
   const [selectedPreviewCatId, setSelectedPreviewCatId] = useState<string>('');
   const [logoUploading, setLogoUploading] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
+  const bgUpload = usePendingUpload();
 
   // Fetch real categories & dishes for the live preview
   const fetchPreviewData = useCallback(async () => {
@@ -84,6 +86,7 @@ const Settings = () => {
     setLoading(true);
     try {
       const { data } = await setMenuTheme(menu._id, theme);
+      bgUpload.commit();
       setMenu(data.data);
       refreshSetup();
       setMessage(PAGE.SUCCESS);
@@ -97,12 +100,16 @@ const Settings = () => {
   const handleLogoUpload = async (file: File) => {
     if (!restaurant) return;
     setLogoUploading(true);
+    let uploadedUrl: string | null = null;
     try {
       const { data: uploadData } = await uploadImage(file, 'logos');
-      const { data } = await updateRestaurant(restaurant._id, { logoUrl: uploadData.data.url });
+      uploadedUrl = uploadData.data.url;
+      const { data } = await updateRestaurant(restaurant._id, { logoUrl: uploadedUrl });
       setRestaurant(data.data);
       setMessage(PAGE.SUCCESS_LOGO);
     } catch {
+      // Uploaded but not saved on the restaurant → don't leave it in Cloudinary.
+      if (uploadedUrl) void discardImage(uploadedUrl);
       setMessage('Logo upload failed. Please try again.');
     } finally {
       setLogoUploading(false);
@@ -113,6 +120,7 @@ const Settings = () => {
     setBgUploading(true);
     try {
       const { data: uploadData } = await uploadImage(file, 'backgrounds');
+      bgUpload.track(uploadData.data.url);
       setTheme((prev) => ({ ...prev, backgroundImageUrl: uploadData.data.url }));
     } catch {
       setMessage('Background image upload failed. Please try again.');
@@ -220,7 +228,10 @@ const Settings = () => {
               <img src={theme.backgroundImageUrl} alt="Background preview" style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 10, border: '2px solid var(--border)' }} />
               <button
                 type="button"
-                onClick={() => setTheme((prev) => ({ ...prev, backgroundImageUrl: '' }))}
+                onClick={() => {
+                  bgUpload.discard();
+                  setTheme((prev) => ({ ...prev, backgroundImageUrl: '' }));
+                }}
                 style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >✕</button>
             </div>

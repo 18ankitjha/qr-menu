@@ -7,6 +7,7 @@ import {
 import { IReorderItem } from '../../../interfaces/common.interface';
 import { ERROR_MESSAGES } from '../../../config/constants';
 import { createAppError } from '../../../middlewares/error.middleware';
+import { ImageCleanupDM } from '../../upload';
 
 // ============================================================
 // Category DM Layer
@@ -59,7 +60,9 @@ export const updateCategory = async (
     throw createAppError(ERROR_MESSAGES.CATEGORY_NOT_FOUND, 404);
   }
 
-  return CategoryModel.findByIdAndUpdate(id, input, { new: true }).lean();
+  const updated = await CategoryModel.findByIdAndUpdate(id, input, { new: true }).lean();
+  ImageCleanupDM.releaseIfReplaced(category.imageUrl, updated?.imageUrl, 'imageUrl' in input);
+  return updated;
 };
 
 /**
@@ -87,6 +90,7 @@ export const deleteCategory = async (id: string): Promise<void> => {
   }
 
   await CategoryModel.findByIdAndDelete(id);
+  void ImageCleanupDM.releaseImage(category.imageUrl);
 };
 
 /**

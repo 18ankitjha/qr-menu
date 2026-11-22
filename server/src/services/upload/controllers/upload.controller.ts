@@ -3,6 +3,7 @@ import { SUCCESS_MESSAGES, ERROR_MESSAGES, CLOUDINARY_FOLDERS, APP_CONSTANTS } f
 import { sendSuccess, sendError } from '../../../utils/response.util';
 import { asyncHandler } from '../../../middlewares/error.middleware';
 import { uploadImageToCloudinary } from '../../../utils/cloudinary.util';
+import * as ImageCleanupDM from '../dm/image-cleanup.dm';
 
 // ============================================================
 // Upload Controller
@@ -49,4 +50,14 @@ export const uploadImage = asyncHandler(async (req: Request, res: Response) => {
     },
     SUCCESS_MESSAGES.IMAGE_UPLOADED
   );
+});
+
+/**
+ * DELETE /upload/image  body: { url }
+ * Discard an uploaded image the owner never saved (e.g. cancelled the dish form).
+ * Only deletes our own upload-folder images that no dish/category/logo/background uses.
+ */
+export const discardImage = asyncHandler(async (req: Request, res: Response) => {
+  const deleted = await ImageCleanupDM.releaseImage(req.body.url as string);
+  sendSuccess(res, { deleted }, deleted ? 'Image discarded' : 'Image kept (in use or not ours)');
 });

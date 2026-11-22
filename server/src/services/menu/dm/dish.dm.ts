@@ -5,6 +5,7 @@ import { IDish, IAddDishInput, IUpdateDishInput } from '../interfaces/dish.inter
 import { IReorderItem } from '../../../interfaces/common.interface';
 import { ERROR_MESSAGES } from '../../../config/constants';
 import { createAppError } from '../../../middlewares/error.middleware';
+import { ImageCleanupDM } from '../../upload';
 
 // ============================================================
 // Dish DM Layer
@@ -77,7 +78,9 @@ export const updateDish = async (
     throw createAppError(ERROR_MESSAGES.DISH_NOT_FOUND, 404);
   }
 
-  return DishModel.findByIdAndUpdate(id, input, { new: true }).lean();
+  const updated = await DishModel.findByIdAndUpdate(id, input, { new: true }).lean();
+  ImageCleanupDM.releaseIfReplaced(dish.imageUrl, updated?.imageUrl, 'imageUrl' in input);
+  return updated;
 };
 
 /**
@@ -105,6 +108,7 @@ export const deleteDish = async (id: string): Promise<void> => {
   }
 
   await DishModel.findByIdAndDelete(id);
+  void ImageCleanupDM.releaseImage(dish.imageUrl);
 };
 
 /**

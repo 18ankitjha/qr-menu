@@ -81,15 +81,35 @@ export const uploadQrToCloudinary = (
 };
 
 /**
- * Deletes an image from Cloudinary by public ID.
+ * Deletes an image from Cloudinary by public ID (also drops its derived
+ * thumbnails and purges the CDN cache). Never throws.
  */
 export const deleteImageFromCloudinary = async (publicId: string): Promise<void> => {
   try {
-    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(publicId, { invalidate: true });
     logger.info(`Cloudinary image deleted: ${publicId}`);
   } catch (error) {
     logger.error('Cloudinary delete failed:', error);
   }
+};
+
+/** Every app folder in CLOUDINARY_FOLDERS lives under this root. */
+const CLOUDINARY_ROOT_FOLDER = 'qr-menu';
+
+/**
+ * Extracts the public ID from one of OUR Cloudinary URLs, e.g.
+ * https://res.cloudinary.com/<cloud>/image/upload/v123/qr-menu/dishes/abc.webp → qr-menu/dishes/abc
+ * Returns null for anything else (other clouds, external links, non-app folders).
+ */
+export const publicIdFromUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  const marker = `res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/`;
+  const at = url.indexOf(marker);
+  if (at < 0) return null;
+  const segments = url.slice(at + marker.length).split(/[?#]/)[0].split('/');
+  const root = segments.indexOf(CLOUDINARY_ROOT_FOLDER);
+  if (root < 0 || root === segments.length - 1) return null;
+  return segments.slice(root).join('/').replace(/\.[a-z0-9]+$/i, '');
 };
 
 export { cloudinary };

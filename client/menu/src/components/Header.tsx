@@ -1,5 +1,6 @@
 import { MESSAGES } from '../constants';
 import type { ICustomer, ITableMenu, ITableSession } from '../types';
+import { thumbUrl } from '../utils/image.util';
 
 interface Props {
   menu: ITableMenu;
@@ -18,7 +19,7 @@ const Header = ({ menu, customer, session, onSignOut }: Props) => {
           {MESSAGES.SIGN_OUT}
         </button>
       )}
-      {restaurant.logoUrl && <img src={restaurant.logoUrl} alt={restaurant.name} className="restaurant-logo" />}
+      {restaurant.logoUrl && <img src={thumbUrl(restaurant.logoUrl)} alt={restaurant.name} className="restaurant-logo" />}
       <h1 className="restaurant-name">{restaurant.name}</h1>
       <p className="table-chip">
         Table {table.tableNumber}
