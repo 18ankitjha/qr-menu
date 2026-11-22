@@ -421,6 +421,15 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
 - Dishes are always shown as a list now, so the theme's grid/list `layout` setting no longer changes this page.
 - No "Egg" chip — dishes only have `isVeg`; adding it needs a `dietType` field on Dish.
 
+### 6d.4 Bill → paid in one place (admin + waiter)
+- Flow: Orders / Tables → **Orders & Bill** → **Generate Bill** → the same popup shows the amount and
+  **💵 Cash / 📱 UPI / 💳 Card** buttons → one tap marks it paid (`PATCH /billing/markPaid/:billId`). There is also a "Collect later" link.
+- Unpaid earlier bills for the table show at the top of that popup with the same buttons. Orders → Completed
+  shows an "N unpaid" badge and pay buttons on unpaid bills.
+- The **Bills** page is now history only (filter, view, PDF), with no mark-paid action.
+- Shared component: `client/admin/src/components/PayButtons.tsx`. No backend change.
+- The session rule is unchanged: generating the bill ends the table's customer session, and the next QR scan starts a new one.
+
 ---
 
 ## 7. Decisions made

@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getOrdersByTable, previewTableBill, generateTableBill, getBills, getBillPdfUrl, getErrorMessage } from '../services/api';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, ROUTES, MESSAGES } from '../constants';
+import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, MESSAGES } from '../constants';
 import type { IBill, IBillPreview, IOrder, ITableOrders } from '../types';
 import { formatMoney } from '../utils/money';
 import { canEditOrder } from '../utils/order';
 import { BillBreakdown } from './BillBreakdown';
 import { EditOrderModal } from './EditOrderModal';
+import { PayButtons } from './PayButtons';
 import './Billing.css';
 
 // ============================================================
@@ -32,9 +32,13 @@ const TEXT = {
   CONFIRM_PENDING: 'Some orders are not delivered yet. Generate the bill anyway?',
   GENERATE: 'Generate Bill',
   GENERATING: 'Generating...',
-  GENERATED: (no: string) => `Bill ${no} generated`,
+  GENERATED: (no: string) => `Bill ${no}`,
   OPEN_PDF: 'Open PDF',
-  GO_TO_BILLS: 'Go to Bills',
+  COLLECT_HINT: 'Collect payment — tap how the customer paid:',
+  COLLECT_LATER: 'Collect later',
+  PAID_VIA: (mode: string) => `Paid via ${mode}. Table is free for the next customer.`,
+  DONE: 'Done',
+  UNPAID_ALERT: (n: number) => `${n} earlier bill${n !== 1 ? 's' : ''} on this table still unpaid`,
   CLOSE: 'Close',
   EDIT: 'Edit',
 };
@@ -49,7 +53,6 @@ interface TableBillModalProps {
 }
 
 const TableBillModal = ({ tableId, tableNumber, tableLabel, onClose, onBillGenerated }: TableBillModalProps) => {
-  const navigate = useNavigate();
   const { restaurant } = useAuth();
   const [pastBills, setPastBills] = useState<IBill[]>([]);
   const [showPastBills, setShowPastBills] = useState(false);
@@ -100,7 +103,14 @@ const TableBillModal = ({ tableId, tableNumber, tableLabel, onClose, onBillGener
     }
   };
 
+  const handlePaid = (paid: IBill) => {
+    setGeneratedBill((b) => (b && b._id === paid._id ? paid : b));
+    setPastBills((bills) => bills.map((b) => (b._id === paid._id ? paid : b)));
+    onBillGenerated?.(paid);
+  };
+
   const hasItemsToBill = !!preview && preview.items.length > 0;
+  const unpaidPastBills = pastBills.filter((b) => b.status !== 'PAID' && b._id !== generatedBill?._id);
 
   return (
     <>
@@ -114,16 +124,38 @@ const TableBillModal = ({ tableId, tableNumber, tableLabel, onClose, onBillGener
         {error && <div className="form-message form-message--error">{error}</div>}
 
         {generatedBill && (
-          <div className="form-message bill-generated">
-            <span>✅ {TEXT.GENERATED(generatedBill.billNumber)} · {formatMoney(generatedBill.totalAmount)}</span>
-            <div className="btn-row">
+          <div className={`bill-collect ${generatedBill.status === 'PAID' ? 'bill-collect--paid' : ''}`}>
+            <div className="bill-collect-head">
+              <span>{TEXT.GENERATED(generatedBill.billNumber)}</span>
               <button className="btn-secondary btn-sm" onClick={() => window.open(getBillPdfUrl(generatedBill._id), '_blank')}>
                 🧾 {TEXT.OPEN_PDF}
               </button>
-              <button className="btn-secondary btn-sm" onClick={() => navigate(ROUTES.BILLS)}>
-                {TEXT.GO_TO_BILLS}
-              </button>
             </div>
+            <div className="bill-collect-amount">{formatMoney(generatedBill.totalAmount)}</div>
+            {generatedBill.status === 'PAID' ? (
+              <>
+                <p className="bill-collect-done">✅ {TEXT.PAID_VIA(generatedBill.paymentMode ?? '')}</p>
+                <button className="btn-primary" onClick={onClose}>{TEXT.DONE}</button>
+              </>
+            ) : (
+              <>
+                <p className="bill-muted">{TEXT.COLLECT_HINT}</p>
+                <PayButtons bill={generatedBill} size="lg" onPaid={handlePaid} />
+                <button className="btn-link" onClick={onClose}>{TEXT.COLLECT_LATER}</button>
+              </>
+            )}
+          </div>
+        )}
+
+        {unpaidPastBills.length > 0 && (
+          <div className="bill-warning bill-unpaid-list">
+            <strong>⚠️ {TEXT.UNPAID_ALERT(unpaidPastBills.length)}</strong>
+            {unpaidPastBills.map((bill) => (
+              <div key={bill._id} className="bill-unpaid-row">
+                <span>{bill.billNumber} · {formatMoney(bill.totalAmount)}</span>
+                <PayButtons bill={bill} onPaid={handlePaid} />
+              </div>
+            ))}
           </div>
         )}
 
@@ -200,7 +232,7 @@ const TableBillModal = ({ tableId, tableNumber, tableLabel, onClose, onBillGener
                         <div className="bill-order-side">
                           <span>{formatMoney(bill.totalAmount)}</span>
                           <span className={`bill-chip ${bill.status === 'PAID' ? '' : 'bill-chip--unpaid'}`}>
-                            {bill.status === 'PAID' ? TEXT.PAID : TEXT.UNPAID}
+                            {bill.status === 'PAID' ? `${TEXT.PAID} · ${bill.paymentMode ?? ''}` : TEXT.UNPAID}
                           </span>
                           <button className="btn-secondary btn-sm" onClick={() => window.open(getBillPdfUrl(bill._id), '_blank')}>
                             🧾

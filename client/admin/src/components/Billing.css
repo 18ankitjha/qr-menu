@@ -34,6 +34,97 @@
   gap: 10px;
 }
 
+/* ------- Collect payment (right after generating a bill) ------- */
+
+.bill-collect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  margin-bottom: 8px;
+  border: 2px solid rgba(245, 158, 11, 0.5);
+  border-radius: 14px;
+  background: rgba(245, 158, 11, 0.06);
+  text-align: center;
+}
+
+.bill-collect--paid {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.bill-collect-head {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bill-collect-amount {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.bill-collect-done {
+  color: #059669;
+  font-weight: 600;
+}
+
+.pay-buttons-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pay-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pay-buttons--lg {
+  gap: 10px;
+  justify-content: center;
+}
+
+.pay-btn {
+  min-width: 110px;
+  padding: 12px 18px;
+  font-size: 15px;
+}
+
+.pay-error {
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.bill-unpaid-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bill-unpaid-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .bill-warning {
   padding: 10px 12px;
   border-radius: 10px;

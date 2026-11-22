@@ -11,6 +11,7 @@ import { TableBillModal } from '../components/TableBillModal';
 import { TakeOrderModal } from '../components/TakeOrderModal';
 import { TableAlertsBanner } from '../components/TableAlertsBanner';
 import { EditOrderModal } from '../components/EditOrderModal';
+import { PayButtons } from '../components/PayButtons';
 import { canEditOrder } from '../utils/order';
 
 // ============================================================
@@ -19,7 +20,7 @@ import { canEditOrder } from '../utils/order';
 
 const PAGE = {
   TITLE: 'Orders',
-  SUBTITLE: 'Current shows the customer now at each table. Once a table is billed, its orders move to Completed.',
+  SUBTITLE: 'Current shows the customer now at each table. Tap "Orders & Bill" → Generate → Cash/UPI/Card to finish a table.',
   NEW_ORDER: 'New Order',
   PLACED_BY: (name: string) => `by ${name}`,
   EDITED_BY: (name: string) => `edited by ${name}`,
@@ -42,6 +43,7 @@ const PAGE = {
   UNPAID: 'Unpaid',
   BILL_PDF: 'Bill PDF',
   NOT_CHARGED: 'not charged',
+  UNPAID_COUNT: (n: number) => `${n} unpaid`,
 } as const;
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -179,6 +181,7 @@ const Orders = () => {
 
   const currentTableCount = useMemo(() => new Set(currentOrders.map((o) => o.tableId)).size, [currentOrders]);
   const completedBillCount = useMemo(() => new Set(billedOrders.map((o) => o.billId)).size, [billedOrders]);
+  const unpaidBillCount = useMemo(() => bills.filter((b) => b.status !== 'PAID').length, [bills]);
 
   if (!restaurant) {
     return (
@@ -308,6 +311,7 @@ const Orders = () => {
           onClick={() => switchView('completed')}
         >
           {PAGE.TAB_COMPLETED} ({completedBillCount})
+          {unpaidBillCount > 0 && <span className="bill-chip bill-chip--unpaid" style={{ marginLeft: 6 }}>{PAGE.UNPAID_COUNT(unpaidBillCount)}</span>}
         </button>
       </div>
 
@@ -372,9 +376,12 @@ const Orders = () => {
                       </button>
                     ) : (
                       bill && (
-                        <button className="btn-invoice" onClick={() => openPdf(getBillPdfUrl(bill._id))}>
-                          🧾 {PAGE.BILL_PDF}
-                        </button>
+                        <>
+                          {bill.status !== 'PAID' && <PayButtons bill={bill} onPaid={fetchOrders} />}
+                          <button className="btn-invoice" onClick={() => openPdf(getBillPdfUrl(bill._id))}>
+                            🧾 {PAGE.BILL_PDF}
+                          </button>
+                        </>
                       )
                     )}
                     <span className="table-group-toggle">{isExpanded ? '▲' : '▼'}</span>
