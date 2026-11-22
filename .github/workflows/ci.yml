@@ -1,5 +1,5 @@
 # CI — every push to main and every PR builds the API + all four front-ends.
-# Render (render.yaml: autoDeployTrigger: checksPass) deploys a main commit only when these checks pass.
+# On a push to main, once every build passes, the deploy job calls Render's Deploy Hook.
 name: CI
 
 on:
@@ -41,3 +41,21 @@ jobs:
       # server: tsc · apps: tsc -b && vite build
       - name: Type-check and build
         run: npm run build
+
+  # CD — once every build above passes on a push to main, ask Render to deploy via its Deploy Hook.
+  # Set the repo secret RENDER_DEPLOY_HOOK_URL (Render → service → Settings → Deploy Hook). Skipped if unset.
+  deploy:
+    name: deploy (Render)
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+    steps:
+      - name: Trigger Render deploy
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null && echo "Render deploy triggered for $GITHUB_SHA"
+
+      - name: Hook not configured
+        if: env.RENDER_DEPLOY_HOOK_URL == ''
+        run: echo "::warning::RENDER_DEPLOY_HOOK_URL secret is not set, so Render was not asked to deploy."

@@ -40,9 +40,10 @@ allow `0.0.0.0/0` in MongoDB Atlas → Network Access, and regenerate table QRs 
 encode the previous host). Free plan sleeps after ~15 min idle (first request then takes ~50 s).
 
 **CI/CD:** `.github/workflows/ci.yml` builds the server and all four apps on every push/PR to `main`.
-`render.yaml` sets `autoDeployTrigger: checksPass`, so Render deploys a `main` commit only after CI passes
-(a failing build never goes live). Commits touching only `*.md` / `docs/` / `PLAN/` don't redeploy; add
-`[skip render]` to a commit message to skip a deploy manually.
+On a push to `main`, once every build passes, its `deploy` job POSTs Render's **Deploy Hook**, so a failing build never
+goes live. One-time setup: copy the hook from Render → service → Settings → Deploy → Deploy Hook into the GitHub repo
+secret `RENDER_DEPLOY_HOOK_URL` (repo → Settings → Secrets and variables → Actions). Without it, the job only warns.
+Render's own auto-deploy is off in `render.yaml`, so each commit deploys exactly once.
 
 ## Production (example: Nginx)
 
