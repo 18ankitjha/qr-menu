@@ -47,6 +47,10 @@ const ACTION_ENDPOINTS: Record<StatusAction, (id: string) => string> = {
 const changeRestaurantStatus = (id: string, action: StatusAction, reason?: string) =>
   api.patch<IApiResponse<IRestaurant>>(ACTION_ENDPOINTS[action](id), reason ? { reason } : {});
 
+/** Permanently deletes the restaurant, its data and its owner. `confirmName` must match the restaurant name. */
+const deleteRestaurant = (id: string, confirmName: string) =>
+  api.delete<IApiResponse<unknown>>(API_ENDPOINTS.SUPER_ADMIN.DELETE(id), { data: { confirmName } });
+
 /** Pull a readable message out of an API error. */
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (axios.isAxiosError<IApiResponse<null>>(error)) {
@@ -66,5 +70,6 @@ export {
   getRestaurants,
   getRestaurant,
   changeRestaurantStatus,
+  deleteRestaurant,
   getErrorMessage,
 };

@@ -15,6 +15,8 @@ import * as MenuDM from '../../menu/dm/menu.dm';
 import * as DishDM from '../../menu/dm/dish.dm';
 import * as TableDM from '../../table/dm/table.dm';
 import * as OrderDM from '../../order/dm/order.dm';
+import { deleteRestaurantCascade } from '../dm/restaurant-deletion.dm';
+import { logger } from '../../../utils/logger';
 import { SUPER_ADMIN_LIMITS, SUPER_ADMIN_MESSAGES } from '../constants/super-admin.constants';
 import { IListRestaurantsQuery } from '../validators/super-admin.validator';
 import {
@@ -141,3 +143,23 @@ export const approveRestaurant = changeStatus(RestaurantStatusAction.APPROVE);
 export const rejectRestaurant = changeStatus(RestaurantStatusAction.REJECT);
 export const suspendRestaurant = changeStatus(RestaurantStatusAction.SUSPEND);
 export const reactivateRestaurant = changeStatus(RestaurantStatusAction.REACTIVATE);
+
+/**
+ * DELETE /super-admin/deleteRestaurant/:id  { confirmName }
+ * Permanently deletes the restaurant, all its data, its owner account and its images.
+ */
+export const deleteRestaurant = asyncHandler(async (req: Request, res: Response) => {
+  const restaurant = await RestaurantDM.getRestaurantById(req.params.id as string);
+  if (!restaurant) {
+    sendError(res, ERROR_MESSAGES.RESTAURANT_NOT_FOUND, 404);
+    return;
+  }
+  if (req.body.confirmName !== restaurant.name.trim()) {
+    sendError(res, SUPER_ADMIN_MESSAGES.CONFIRM_NAME_MISMATCH, 400);
+    return;
+  }
+
+  const summary = await deleteRestaurantCascade(restaurant);
+  logger.info(`Deleted by super admin ${req.user!.email}`);
+  sendSuccess(res, summary, SUPER_ADMIN_MESSAGES.RESTAURANT_DELETED(restaurant.name));
+});

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { getErrorMessage, getRestaurant } from '../services/api';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { deleteRestaurant, getErrorMessage, getRestaurant } from '../services/api';
 import { useStatusAction } from '../hooks/useStatusAction';
 import { StatusBadge } from '../components/StatusBadge';
+import { DeleteRestaurantDialog } from '../components/DeleteRestaurantDialog';
 import { formatAmount, formatDate, formatDateTime } from '../utils/format';
 import { ACTION_CONFIG, MESSAGES, ROUTES, STATUS_ACTIONS, STATUS_LABELS } from '../constants';
 import type { IRestaurantDetails, IStatusChange } from '../types';
@@ -24,6 +25,9 @@ const PAGE = {
   YES: 'Yes',
   NO: 'No',
   NONE: '—',
+  DANGER_TITLE: 'Danger zone',
+  DANGER_DESC: 'Permanently delete this restaurant, all its data and the owner account.',
+  DELETE: 'Delete restaurant',
 };
 
 const HISTORY_LABELS: Record<IStatusChange['action'], string> = {
@@ -57,6 +61,28 @@ const RestaurantDetail = () => {
   }, [id, reloadKey]);
 
   const { openAction, dialog, successMessage } = useStatusAction(() => setReloadKey((key) => key + 1));
+
+  const navigate = useNavigate();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDelete = async (confirmName: string) => {
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const { data } = await deleteRestaurant(id, confirmName);
+      navigate(ROUTES.RESTAURANTS, { replace: true, state: { flash: data.message } });
+    } catch (err) {
+      setDeleteError(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
+      setDeleting(false);
+    }
+  };
+
+  const closeDelete = () => {
+    setDeleteOpen(false);
+    setDeleteError('');
+  };
 
   if (error && !details) {
     return (
@@ -201,7 +227,27 @@ const RestaurantDetail = () => {
         </section>
       </div>
 
+      <section className="card danger-zone">
+        <div>
+          <h2 className="card-title">{PAGE.DANGER_TITLE}</h2>
+          <p className="cell-sub">{PAGE.DANGER_DESC}</p>
+        </div>
+        <button className="btn btn-danger" onClick={() => setDeleteOpen(true)}>
+          {PAGE.DELETE}
+        </button>
+      </section>
+
       {dialog}
+      {deleteOpen && (
+        <DeleteRestaurantDialog
+          restaurantName={restaurant.name}
+          ownerEmail={restaurant.owner?.email}
+          busy={deleting}
+          error={deleteError}
+          onConfirm={handleDelete}
+          onCancel={closeDelete}
+        />
+      )}
     </div>
   );
 };

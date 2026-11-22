@@ -47,3 +47,21 @@ export interface ISuperAdminProfile {
   name?: string;
   profilePicture?: string;
 }
+
+export interface IRestaurantDeletionSummary {
+  restaurantId: string;
+  restaurantName: string;
+  ownerDeleted: boolean;
+  deleted: {
+    menus: number;
+    categories: number;
+    dishes: number;
+    tables: number;
+    staff: number;
+    orders: number;
+    bills: number;
+    tableSessions: number;
+  };
+  /** Cloudinary images (uploads + table QRs) scheduled for deletion. */
+  imagesQueued: number;
+}

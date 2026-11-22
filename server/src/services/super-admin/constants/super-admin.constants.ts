@@ -11,6 +11,7 @@ export const SUPER_ADMIN_ROUTES = {
   REJECT_RESTAURANT: '/rejectRestaurant/:id',
   SUSPEND_RESTAURANT: '/suspendRestaurant/:id',
   REACTIVATE_RESTAURANT: '/reactivateRestaurant/:id',
+  DELETE_RESTAURANT: '/deleteRestaurant/:id',
 } ;
 
 export const SUPER_ADMIN_MESSAGES = {
@@ -18,6 +19,8 @@ export const SUPER_ADMIN_MESSAGES = {
   STATS_FETCHED: 'Platform stats fetched.',
   RESTAURANTS_FETCHED: 'Restaurants fetched.',
   RESTAURANT_FETCHED: 'Restaurant details fetched.',
+  RESTAURANT_DELETED: (name: string) => `"${name}" and its owner account were permanently deleted.`,
+  CONFIRM_NAME_MISMATCH: 'Type the restaurant name exactly to confirm deletion.',
 } ;
 
 export const SUPER_ADMIN_LIMITS = {

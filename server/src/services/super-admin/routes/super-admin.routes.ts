@@ -7,6 +7,7 @@ import {
 } from '../../../middlewares/validate.middleware';
 import { requireSuperAdmin } from '../middlewares/super-admin.middleware';
 import {
+  deleteRestaurantBodySchema,
   listRestaurantsQuerySchema,
   optionalReasonBodySchema,
   requiredReasonBodySchema,
@@ -62,6 +63,13 @@ router.patch(
   validateParams(restaurantIdParamSchema),
   validateBody(optionalReasonBodySchema),
   SuperAdminController.reactivateRestaurant
+);
+
+router.delete(
+  SUPER_ADMIN_ROUTES.DELETE_RESTAURANT,
+  validateParams(restaurantIdParamSchema),
+  validateBody(deleteRestaurantBodySchema),
+  SuperAdminController.deleteRestaurant
 );
 
 export default router;

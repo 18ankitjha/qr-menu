@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getErrorMessage, getRestaurants, getStats } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
 import { formatDate } from '../utils/format';
@@ -26,6 +26,9 @@ const isRestaurantStatus = (value: string | null): value is RestaurantStatus =>
 
 const Restaurants = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Success message passed by RestaurantDetail after a delete
+  const [flash] = useState<string | undefined>(() => (location.state as { flash?: string } | null)?.flash);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const statusParam = searchParams.get('status');
@@ -122,6 +125,7 @@ const Restaurants = () => {
         />
       </div>
 
+      {flash && <div className="alert alert-success">{flash}</div>}
       {error && <div className="alert alert-error">{error}</div>}
 
       <section className="card">

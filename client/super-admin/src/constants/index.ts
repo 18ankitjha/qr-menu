@@ -28,6 +28,7 @@ const API_ENDPOINTS = {
     REJECT: (id: string) => `${API_BASE_URL}/super-admin/rejectRestaurant/${id}`,
     SUSPEND: (id: string) => `${API_BASE_URL}/super-admin/suspendRestaurant/${id}`,
     REACTIVATE: (id: string) => `${API_BASE_URL}/super-admin/reactivateRestaurant/${id}`,
+    DELETE: (id: string) => `${API_BASE_URL}/super-admin/deleteRestaurant/${id}`,
   },
 };
 

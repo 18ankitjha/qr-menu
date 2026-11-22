@@ -454,7 +454,8 @@
   margin-bottom: 6px;
 }
 
-.form-textarea {
+.form-textarea,
+.form-input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -462,6 +463,26 @@
   font: inherit;
   font-size: 14px;
   resize: vertical;
+}
+
+.danger-zone {
+  margin-top: 24px;
+  border: 1px solid #fecaca;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.danger-zone .card-title {
+  color: #b91c1c;
+}
+
+.danger-list {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 16px 18px;
 }
 
 .form-hint {

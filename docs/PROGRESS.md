@@ -482,6 +482,21 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
   - The Dashboard shows "🎉 Your setup is complete!" with links to Staff, Restaurant (billing), Tables (print QRs) and Orders.
 - `refreshSetup()` now returns the fresh setup status.
 
+### 6d.8 Super admin: delete restaurant
+- **API:** `DELETE /api/v1/super-admin/deleteRestaurant/:id` with body `{ confirmName }`.
+  - `confirmName` must match the restaurant name, otherwise the API returns 400. A missing restaurant returns 404.
+- **What it deletes (permanent, any status):** the restaurant and everything under it:
+  - Menus, categories, dishes and tables.
+  - Staff, orders, bills, table sessions and the bill-number counter.
+  - The owner's user account, which frees the email to sign up again.
+- Cloudinary images (logo, dish, category, background and table QRs) are deleted after the DB.
+- Children are deleted before the restaurant, so a failed delete can be retried.
+- Logic is in `super-admin/dm/restaurant-deletion.dm.ts`.
+- **Super admin UI:** the restaurant detail page has a **Danger zone** card.
+  - Clicking it opens a dialog listing what will be deleted. You type the restaurant name to confirm.
+  - After deleting, it returns to the list with a success message.
+- Waiter tokens stop working immediately, because their staff records are gone.
+
 ---
 
 ## 7. Decisions made

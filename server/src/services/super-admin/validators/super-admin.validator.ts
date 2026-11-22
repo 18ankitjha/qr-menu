@@ -38,4 +38,9 @@ export const requiredReasonBodySchema = z.object({
   reason: reasonSchema,
 });
 
+/** Delete — the caller re-types the restaurant name; checked against the DB in the controller. */
+export const deleteRestaurantBodySchema = z.object({
+  confirmName: z.string().trim().min(1, 'Type the restaurant name to confirm'),
+});
+
 export type IListRestaurantsQuery = z.infer<typeof listRestaurantsQuerySchema>;
