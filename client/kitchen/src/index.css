@@ -1,0 +1,318 @@
+/* ============================================================
+   Kitchen Display — Dark theme, large text for visibility
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ------- Reset ------- */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+}
+
+/* ------- App ------- */
+
+.kitchen-app {
+  min-height: 100vh;
+  background: #0a0a0f;
+  color: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+}
+
+.kitchen-loading,
+.kitchen-error {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #9ca3af;
+  background: #0a0a0f;
+}
+
+/* ------- Header ------- */
+
+.kitchen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #111118;
+  border-bottom: 1px solid #1e1e2e;
+}
+
+.kitchen-header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.kitchen-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.kitchen-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.kitchen-clock {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #9ca3af;
+}
+
+/* ------- Board (Kanban) ------- */
+
+.kitchen-board {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.kitchen-column {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #1e1e2e;
+  min-height: calc(100vh - 140px);
+}
+
+.kitchen-column:last-child {
+  border-right: none;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  background: #111118;
+  border-bottom: 3px solid var(--col-color, #6b7280);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.column-icon {
+  font-size: 18px;
+}
+
+.column-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.column-count {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--col-color, #6b7280);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.column-body {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.column-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: #374151;
+  font-size: 14px;
+}
+
+/* ------- Order Ticket ------- */
+
+.order-ticket {
+  background: #161622;
+  border: 1px solid #1e1e2e;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: ticket-in 0.3s ease;
+}
+
+@keyframes ticket-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #1a1a28;
+  border-bottom: 1px solid #1e1e2e;
+}
+
+.ticket-order-id {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: monospace;
+  padding: 0 14px 6px;
+  margin-top: -4px;
+}
+
+.ticket-id {
+  font-size: 14px;
+  font-weight: 800;
+  font-family: monospace;
+  color: #fff;
+}
+
+.ticket-time {
+  font-size: 12px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.ticket-items {
+  padding: 10px 14px;
+}
+
+.ticket-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 15px;
+  border-bottom: 1px dotted #1e1e2e;
+}
+
+.ticket-item:last-child {
+  border-bottom: none;
+}
+
+.ticket-qty {
+  font-weight: 800;
+  color: #f59e0b;
+  min-width: 28px;
+}
+
+.ticket-name {
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.ticket-note {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.ticket-instructions {
+  padding: 8px 14px;
+  margin: 0 12px 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #fbbf24;
+}
+
+.ticket-customer {
+  padding: 6px 14px 10px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ------- Recently Completed ------- */
+
+.completed-section {
+  padding: 16px 24px;
+  border-top: 1px solid #1e1e2e;
+  background: #0d0d14;
+}
+
+.completed-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #4b5563;
+  margin-bottom: 12px;
+}
+
+.completed-grid {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.completed-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #161622;
+  border: 1px solid #1e1e2e;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.completed-id {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: monospace;
+  color: #6b7280;
+}
+
+.completed-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.completed-time {
+  font-size: 11px;
+  color: #374151;
+}
+
+/* ------- Scrollbar (dark) ------- */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e1e2e;
+  border-radius: 2px;
+}

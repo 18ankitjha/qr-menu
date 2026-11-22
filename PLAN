@@ -1,0 +1,810 @@
+hEY I AM PLANNING TO BUILD A SMART ORDERING SYSTEM WHEREIN CUSTOMER DON'T NEED TO GO TO COUNTER TO ORDER FOOD NOT WAITER HAS TO COME TO TABLE FOR TAKING THE ORDER. SO LET ME MAKE U UNDERSTAND THE PLAN . WE WILL BE GENERATING SMART MENU WHICH WILL BE CUSTOMIZABLE BY THE RESTRAUNT. THEY CAN MAKE CATEGORIES FOR THEIR DISHES.THEN ADD DISHES IN THE CATEGORIES VIA FRONTEND ONLY. EACH RESTRAUNT WILL HAVE ITS OWN RESTRAUNT ID AND THEIR OWN MENU ID . NOW THIS MENU WILL BE LINKED BY QR. EACH QR CODE WILL HAVE ITS OWN MENU. RESTRAUNT ADMIN CAN GENERATE N QR FOR N TABLES. WHEN CUSTOMER OF TABLE 1 SCAN THE QR IT WILL SHOW HIM THE MENU FOR RESTRAUNT R1 SIMILARY FOR TABLE THE SAME MENU WILL OPEN . THE MENU WILL BE INTERACTIVE CUSTOMER CAN PLACE ORDER JUST BY ADDING ORDER AND PLACING THEM. WHEN THEY PLACE A ORDER. WE WILL HAVE A KITCHEN WEBSITE WHICH WILL SHOW VARIOUS ORDER. THE KITCHEN CHEF CAN DECIDE ITS STATE CANNOT DELIVER , DELIVER, COOKING, ETC,.
+ALSO MENU COLORS AND LAYOUT CAN BE CHANGED BY MENU . 
+ONE THING WE SHOULD KEEP IN MIND THE RESTRAUNT OWNER SHOULD REGISTER FIRST ADD HIS RESTRAUNT ALONG WITH GPS COORDINATES. 
+IT WILL BE IMPORTANT BECAUSE I DON'T WANT ANYONE USING THE QR CODE FAr away from restraunt and placing spam orders. for now don't keep payment gateway for placing the order. HOWEVER ON ADMIN DASHBOARD WE SHOULD HAVE OPTION TO GENERATE THE INVOICE.
+THE DATABSE SHOULD BE MONGO USED HERE
+THE ARCHITECTURE SHOULD NOT BE TIGHETLY COUPLED.
+THE CODE SHOULD BE IN TYPESCRIPT WITH PROPER INTERFACING .USE CONSTANTS. EACH API WILL HAVE ITS OWN FILE. THERE SHOULD BE SEPERATE INTERFACE FOLDER. WE WILL HAVE DM LAYER AND DM FUNCTION SHOULD BE PROPER. I WANT DM LAYER TO BE CALLED FROM API NOT DM DIRECTLY. ADD PROPER VALIDATIONS
+WE CAN USE GOOGLE AUTH FOR AUTHENTICATION . LET ME KNOW WHAT ELSE DO U KNOW. THE IMAGES CAN BE STORED IN CLOUDFRONT. MONGO SHOULD ONLY STORE URL
+
+# QR Menu — Smart Restaurant Ordering System (v2 — Updated)
+
+## Problem Statement
+
+Build a QR-code based contactless ordering system where:
+- Restaurant owners register, configure a single customizable menu, generate table-specific QR codes
+- Customers scan a QR code at their table, browse an interactive menu, and place orders
+- Kitchen view shows incoming orders in real-time (read-only, scroll-only for kitchen staff)
+- Admin dashboard shows ALL orders + invoice generation
+- GPS proximity validation prevents spam orders from outside the restaurant
+- No payment gateway; invoice generation on admin dashboard
+
+---
+
+## Changes From v1 (Based on Your Feedback)
+
+| Feedback | Change Applied |
+|---|---|
+| Cloudinary only | Replaced S3 + CloudFront with **Cloudinary** |
+| DM folder structure | Restructured to `dm/<entity>/` containing model + DM layer together |
+| Verb-based API names | Changed from REST-style to `getRestaurant`, `registerRestaurant`, `setMenuTheme`, etc. |
+| Invoice in flow | Added invoice generation to admin flow, added admin order views |
+| Single menu per restaurant | Removed multi-menu support. One menu, dishes can be enabled/disabled |
+| No separate kitchen login | Kitchen is a read-only view accessible via admin. No separate auth. |
+| Kitchen order visibility | Kitchen shows active orders + delivered/cancelled for 30 mins only |
+| Admin sees all orders | Admin dashboard has full order history |
+| No domain yet | QR codes will use configurable base URL (localhost for dev) |
+| Deployment — just plan | No deployment config, focus on local dev |
+
+---
+
+## System Architecture
+
+```mermaid
+graph TB
+    subgraph "Frontend Apps"
+        A["Admin Dashboard<br/>(React + Vite)"]
+        B["Customer Menu SPA<br/>(React + Vite)"]
+        C["Kitchen Display<br/>(React + Vite)<br/>Read-only / Scroll-only"]
+    end
+
+    subgraph "Backend"
+        D["API Server<br/>(Express + TypeScript)"]
+        E["WebSocket Server<br/>(Socket.IO)"]
+    end
+
+    subgraph "Infrastructure"
+        F[(MongoDB Atlas)]
+        G["Cloudinary<br/>(Image Storage + CDN)"]
+        H["Google OAuth 2.0"]
+    end
+
+    A --> D
+    B --> D
+    C --> D
+    C --> E
+    D --> F
+    D --> G
+    D --> H
+    D --> E
+```
+
+> [!IMPORTANT]
+> The backend follows a **clean layered architecture**: `Route → Validation Middleware → Controller → DM Layer (business logic + data access) → MongoDB`. Controllers never touch DB directly. DM functions are the single point of DB interaction.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend Runtime | Node.js 20+ |
+| Backend Framework | Express.js |
+| Language | TypeScript (strict mode) |
+| Database | MongoDB (Mongoose ODM) |
+| Real-time | Socket.IO |
+| Auth | Google OAuth 2.0 + JWT |
+| Image Storage | **Cloudinary** |
+| QR Generation | `qrcode` npm package |
+| Validation | `zod` |
+| PDF Generation | `pdfkit` |
+| Frontend | React 18 + Vite + TypeScript |
+| Styling | Vanilla CSS (design-system based) |
+
+---
+
+## Project Structure
+
+```
+QR_MENU_IDEA/
+├── server/
+│   ├── src/
+│   │   ├── config/
+│   │   │   ├── constants.ts          # App-wide constants (order statuses, roles, GPS defaults, etc.)
+│   │   │   ├── db.ts                 # MongoDB connection
+│   │   │   └── env.ts               # Typed env config with validation
+│   │   │
+│   │   ├── dm/                       # Domain Model layer (model + business logic + data access)
+│   │   │   ├── restaurant/
+│   │   │   │   ├── restaurant.model.ts       # Mongoose schema + model
+│   │   │   │   └── restaurant.dm.ts          # DM functions (registerRestaurant, getRestaurant, etc.)
+│   │   │   ├── menu/
+│   │   │   │   ├── menu.model.ts
+│   │   │   │   └── menu.dm.ts
+│   │   │   ├── category/
+│   │   │   │   ├── category.model.ts
+│   │   │   │   └── category.dm.ts
+│   │   │   ├── dish/
+│   │   │   │   ├── dish.model.ts
+│   │   │   │   └── dish.dm.ts
+│   │   │   ├── order/
+│   │   │   │   ├── order.model.ts
+│   │   │   │   └── order.dm.ts
+│   │   │   ├── table/
+│   │   │   │   ├── table.model.ts
+│   │   │   │   └── table.dm.ts
+│   │   │   ├── user/
+│   │   │   │   ├── user.model.ts
+│   │   │   │   └── user.dm.ts
+│   │   │   └── invoice/
+│   │   │       └── invoice.dm.ts             # PDF generation logic (no model — generated on-the-fly)
+│   │   │
+│   │   ├── interfaces/               # All TypeScript interfaces (shared types)
+│   │   │   ├── restaurant.interface.ts
+│   │   │   ├── menu.interface.ts
+│   │   │   ├── category.interface.ts
+│   │   │   ├── dish.interface.ts
+│   │   │   ├── order.interface.ts
+│   │   │   ├── table.interface.ts
+│   │   │   ├── user.interface.ts
+│   │   │   ├── invoice.interface.ts
+│   │   │   └── common.interface.ts           # ApiResponse, Pagination, GPS types
+│   │   │
+│   │   ├── controllers/              # Thin HTTP handlers — call DM, return response
+│   │   │   ├── restaurant.controller.ts
+│   │   │   ├── menu.controller.ts
+│   │   │   ├── category.controller.ts
+│   │   │   ├── dish.controller.ts
+│   │   │   ├── order.controller.ts
+│   │   │   ├── table.controller.ts
+│   │   │   ├── qr.controller.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── upload.controller.ts
+│   │   │   └── invoice.controller.ts
+│   │   │
+│   │   ├── routes/                   # Each API = its own file
+│   │   │   ├── restaurant.routes.ts
+│   │   │   ├── menu.routes.ts
+│   │   │   ├── category.routes.ts
+│   │   │   ├── dish.routes.ts
+│   │   │   ├── order.routes.ts
+│   │   │   ├── table.routes.ts
+│   │   │   ├── qr.routes.ts
+│   │   │   ├── auth.routes.ts
+│   │   │   ├── upload.routes.ts
+│   │   │   ├── invoice.routes.ts
+│   │   │   └── index.ts             # Route aggregator
+│   │   │
+│   │   ├── middlewares/
+│   │   │   ├── auth.middleware.ts     # JWT verification
+│   │   │   ├── validate.middleware.ts # Zod schema validation
+│   │   │   ├── gps.middleware.ts      # GPS proximity check for orders
+│   │   │   └── error.middleware.ts    # Global error handler
+│   │   │
+│   │   ├── validators/               # Zod schemas for request validation
+│   │   │   ├── restaurant.validator.ts
+│   │   │   ├── menu.validator.ts
+│   │   │   ├── category.validator.ts
+│   │   │   ├── dish.validator.ts
+│   │   │   ├── order.validator.ts
+│   │   │   └── table.validator.ts
+│   │   │
+│   │   ├── utils/
+│   │   │   ├── gps.util.ts           # Haversine distance calculation
+│   │   │   ├── response.util.ts      # Standard API response wrapper
+│   │   │   ├── cloudinary.util.ts    # Cloudinary upload helper
+│   │   │   └── logger.ts            # Logger utility
+│   │   │
+│   │   ├── socket/
+│   │   │   └── kitchen.socket.ts     # Socket.IO event handlers for kitchen
+│   │   │
+│   │   ├── app.ts                    # Express app setup
+│   │   └── server.ts                 # Entry point
+│   │
+│   ├── tsconfig.json
+│   ├── package.json
+│   └── .env.example
+│
+├── client/
+│   ├── admin/                        # Restaurant Admin Dashboard
+│   ├── menu/                         # Customer-facing Menu SPA
+│   └── kitchen/                      # Kitchen Display (read-only)
+│
+└── README.md
+```
+
+---
+
+## Data Models
+
+### Restaurant
+```typescript
+interface IRestaurant {
+  _id: ObjectId;
+  ownerId: ObjectId;           // ref → User
+  name: string;
+  address: string;
+  gpsCoordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  gpsRadiusMeters: number;     // default 200
+  logoUrl?: string;            // Cloudinary URL
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Menu (Single per Restaurant)
+```typescript
+interface IMenu {
+  _id: ObjectId;
+  restaurantId: ObjectId;      // ref → Restaurant (1:1 relationship)
+  name: string;                // e.g. "Main Menu"
+  isActive: boolean;
+  theme: {
+    primaryColor: string;
+    secondaryColor: string;
+    backgroundColor: string;
+    fontFamily: string;
+    layout: 'grid' | 'list';
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Category
+```typescript
+interface ICategory {
+  _id: ObjectId;
+  menuId: ObjectId;
+  name: string;                // e.g. "Starters", "Lunch Specials", "Dinner Mains"
+  description?: string;
+  displayOrder: number;
+  imageUrl?: string;           // Cloudinary URL
+  isActive: boolean;           // ← toggle to show/hide (e.g. disable "Lunch" during dinner)
+}
+```
+
+### Dish
+```typescript
+interface IDish {
+  _id: ObjectId;
+  categoryId: ObjectId;
+  menuId: ObjectId;            // denormalized for faster queries
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;           // Cloudinary URL
+  isVeg: boolean;
+  isAvailable: boolean;        // ← toggle availability per dish
+  preparationTime?: number;    // minutes
+  tags?: string[];             // "spicy", "bestseller", "new"
+  displayOrder: number;
+}
+```
+
+### Table
+```typescript
+interface ITable {
+  _id: ObjectId;
+  restaurantId: ObjectId;
+  tableNumber: number;
+  label?: string;              // e.g. "Window Seat 1"
+  qrCodeUrl?: string;          // Cloudinary URL of generated QR
+  isActive: boolean;
+}
+```
+
+> [!NOTE]
+> Since there's only one menu per restaurant, the table doesn't need a `menuId`. The menu is resolved via `table.restaurantId → restaurant → menu`.
+
+### Order
+```typescript
+interface IOrder {
+  _id: ObjectId;
+  restaurantId: ObjectId;
+  tableId: ObjectId;
+  items: IOrderItem[];
+  status: OrderStatus;
+  specialInstructions?: string;
+  customerName?: string;
+  totalAmount: number;
+  gpsCoordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface IOrderItem {
+  dishId: ObjectId;
+  dishName: string;            // snapshot at order time
+  quantity: number;
+  price: number;               // snapshot at order time
+  notes?: string;
+}
+
+// Defined in constants.ts
+enum OrderStatus {
+  PLACED = 'PLACED',
+  CONFIRMED = 'CONFIRMED',
+  COOKING = 'COOKING',
+  READY = 'READY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+  CANNOT_DELIVER = 'CANNOT_DELIVER'
+}
+```
+
+### User (Restaurant Owner)
+```typescript
+interface IUser {
+  _id: ObjectId;
+  googleId: string;
+  email: string;
+  name: string;
+  profilePicture?: string;
+  restaurantId?: ObjectId;     // linked after restaurant creation
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+---
+
+## API Design (Verb-Based Naming)
+
+### Auth APIs
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/auth/google` | Initiate Google OAuth flow |
+| GET | `/api/v1/auth/google/callback` | Google OAuth callback |
+| GET | `/api/v1/auth/getProfile` | Get current logged-in user |
+| POST | `/api/v1/auth/logout` | Logout |
+
+### Restaurant APIs (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/restaurant/register` | Register a new restaurant |
+| GET | `/api/v1/restaurant/get/:id` | Get restaurant details |
+| PUT | `/api/v1/restaurant/update/:id` | Update restaurant info (name, address, GPS) |
+| PUT | `/api/v1/restaurant/setGps/:id` | Set/update GPS coordinates |
+| DELETE | `/api/v1/restaurant/deactivate/:id` | Soft-delete (deactivate) restaurant |
+
+### Menu APIs (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/menu/create` | Create menu for restaurant (one-time) |
+| GET | `/api/v1/menu/get/:restaurantId` | Get menu for a restaurant |
+| PUT | `/api/v1/menu/update/:menuId` | Update menu name |
+| PUT | `/api/v1/menu/setTheme/:menuId` | Set menu theme (colors, font, layout) |
+
+### Category APIs (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/category/add` | Add a category to menu |
+| GET | `/api/v1/category/getAll/:menuId` | Get all categories for a menu |
+| PUT | `/api/v1/category/update/:id` | Update category details |
+| PUT | `/api/v1/category/setActive/:id` | Toggle category active/inactive |
+| DELETE | `/api/v1/category/delete/:id` | Delete a category |
+| PATCH | `/api/v1/category/reorder` | Reorder categories |
+
+### Dish APIs (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/dish/add` | Add a dish to a category |
+| GET | `/api/v1/dish/getAll/:categoryId` | Get all dishes in a category |
+| PUT | `/api/v1/dish/update/:id` | Update dish details |
+| PUT | `/api/v1/dish/setAvailability/:id` | Toggle dish availability |
+| DELETE | `/api/v1/dish/delete/:id` | Delete a dish |
+| PATCH | `/api/v1/dish/reorder` | Reorder dishes |
+
+### Table & QR APIs (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/table/add` | Create a single table |
+| POST | `/api/v1/table/addBulk` | Bulk create N tables |
+| GET | `/api/v1/table/getAll/:restaurantId` | List all tables |
+| DELETE | `/api/v1/table/delete/:id` | Delete a table |
+| POST | `/api/v1/qr/generate/:tableId` | Generate QR code for a table |
+| GET | `/api/v1/qr/get/:tableId` | Get/download QR image |
+
+### Order APIs — Customer (No Auth)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/order/place` | Place an order (GPS validated) |
+| GET | `/api/v1/order/getStatus/:orderId` | Get order status |
+| GET | `/api/v1/order/getActiveByTable/:tableId` | Get active orders for a table |
+
+### Order APIs — Admin (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/order/getAll/:restaurantId` | Get ALL orders (full history) |
+| PATCH | `/api/v1/order/setStatus/:orderId` | Update order status |
+
+### Order APIs — Kitchen (No Auth, but scoped to restaurant)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/order/getKitchenOrders/:restaurantId` | Get active + recently delivered/cancelled (30 min window) |
+
+### Invoice APIs (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/invoice/generate` | Generate invoice for selected order(s) |
+| GET | `/api/v1/invoice/getPdf/:orderId` | Download invoice as PDF |
+
+### Upload APIs (Auth Required)
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/v1/upload/image` | Upload image to Cloudinary → return URL |
+
+### Public APIs (No Auth — QR Scan Entry Point)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/public/getMenu/:restaurantId/:tableId` | Get full menu + theme for customer view |
+
+---
+
+## DM Layer Pattern
+
+Each DM file follows this pattern — it's the **single source of truth** for all business logic and data access for that entity:
+
+```typescript
+// dm/restaurant/restaurant.dm.ts
+
+import { RestaurantModel } from './restaurant.model';
+import { IRestaurant, IRegisterRestaurantInput } from '../../interfaces/restaurant.interface';
+
+// Every DM function is a named export
+export const registerRestaurant = async (input: IRegisterRestaurantInput): Promise<IRestaurant> => {
+  // 1. Business validation (e.g., check user doesn't already own a restaurant)
+  // 2. Data transformation
+  // 3. DB operation via Mongoose model
+  // 4. Return result
+};
+
+export const getRestaurantById = async (id: string): Promise<IRestaurant | null> => {
+  return RestaurantModel.findById(id).lean();
+};
+
+export const updateRestaurant = async (id: string, updates: Partial<IRestaurant>): Promise<IRestaurant | null> => {
+  return RestaurantModel.findByIdAndUpdate(id, updates, { new: true }).lean();
+};
+
+// ... more DM functions
+```
+
+**Controller calls DM, never touches model directly:**
+```typescript
+// controllers/restaurant.controller.ts
+import * as RestaurantDM from '../dm/restaurant/restaurant.dm';
+import { sendSuccess, sendError } from '../utils/response.util';
+
+export const registerRestaurant = async (req: Request, res: Response) => {
+  try {
+    const restaurant = await RestaurantDM.registerRestaurant(req.body);
+    return sendSuccess(res, restaurant, 'Restaurant registered successfully', 201);
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+```
+
+---
+
+## Key Flows
+
+### Complete QR Order Flow
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Server
+    participant DB
+    participant Cloudinary
+    participant Customer
+    participant Kitchen
+
+    Note over Admin: Setup Phase
+    Admin->>Server: POST /restaurant/register
+    Server->>DB: Store restaurant with GPS
+    Admin->>Server: POST /menu/create
+    Server->>DB: Store menu
+    Admin->>Server: POST /category/add (multiple)
+    Admin->>Server: POST /dish/add (multiple)
+    Admin->>Server: POST /upload/image (dish photos)
+    Server->>Cloudinary: Upload images
+    Cloudinary-->>Server: CDN URLs
+    Admin->>Server: POST /table/addBulk (N tables)
+    Admin->>Server: POST /qr/generate/:tableId
+    Server->>Cloudinary: Upload QR image
+    Server-->>Admin: QR download URL
+
+    Note over Customer: Ordering Phase
+    Customer->>Customer: Scans QR at Table 3
+    Customer->>Server: GET /public/getMenu/:restaurantId/:tableId
+    Server-->>Customer: Full menu + theme JSON
+    Customer->>Customer: Browses menu, adds items to cart
+    Customer->>Server: POST /order/place (items + GPS coords)
+    Server->>Server: Validate GPS proximity (Haversine)
+    Server->>DB: Save order (status: PLACED)
+    Server->>Kitchen: Socket.IO → "new_order" event
+    Kitchen->>Kitchen: New order card appears (auto-scroll)
+
+    Note over Admin: Admin & Kitchen Views
+    Admin->>Server: GET /order/getAll/:restaurantId
+    Server-->>Admin: ALL orders (full history)
+    Kitchen->>Server: GET /order/getKitchenOrders/:restaurantId
+    Server-->>Kitchen: Active + delivered/cancelled (≤30 min)
+
+    Note over Kitchen: Status Updates
+    Admin->>Server: PATCH /order/setStatus/:orderId (COOKING)
+    Server->>DB: Update status
+    Server->>Kitchen: Socket.IO → "order_status_updated"
+    Admin->>Server: PATCH /order/setStatus/:orderId (DELIVERED)
+
+    Note over Admin: Invoice Phase
+    Admin->>Server: POST /invoice/generate (orderId)
+    Server->>Server: Generate PDF (restaurant info + items + total)
+    Server-->>Admin: PDF download
+```
+
+### Kitchen Display — Order Visibility Rules
+```
+┌──────────────────────────────────────────────────┐
+│                KITCHEN DISPLAY                    │
+│              (Read-only, scroll-only)             │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  ALWAYS VISIBLE:                                 │
+│  ├── PLACED orders                               │
+│  ├── CONFIRMED orders                            │
+│  ├── COOKING orders                              │
+│  └── READY orders                                │
+│                                                  │
+│  VISIBLE FOR 30 MINUTES ONLY:                    │
+│  ├── DELIVERED orders (fade after 30 min)        │
+│  └── CANCELLED orders (fade after 30 min)        │
+│                                                  │
+│  NEVER VISIBLE:                                  │
+│  └── Orders older than 30 min after completion   │
+│                                                  │
+│  Note: Kitchen staff can ONLY scroll.            │
+│  Status changes are made by Admin only.          │
+└──────────────────────────────────────────────────┘
+```
+
+### Admin Dashboard — Order Visibility
+```
+┌──────────────────────────────────────────────────┐
+│              ADMIN DASHBOARD                      │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  ALL ORDERS visible (full history)               │
+│  ├── Filter by status                            │
+│  ├── Filter by date                              │
+│  ├── Filter by table                             │
+│  ├── Change order status                         │
+│  └── Generate invoice for any order              │
+│                                                  │
+└──────────────────────────────────────────────────┘
+```
+
+---
+
+## GPS Anti-Spam Strategy
+
+```typescript
+// utils/gps.util.ts
+// Haversine formula: calculates distance between two GPS coordinates
+
+export const calculateDistanceInMeters = (
+  lat1: number, lon1: number,
+  lat2: number, lon2: number
+): number => {
+  const R = 6371000; // Earth radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a = Math.sin(Δφ / 2) ** 2 +
+            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
+
+// Flow:
+// 1. Customer's browser → navigator.geolocation.getCurrentPosition()
+// 2. GPS coords sent with POST /order/place
+// 3. Server loads restaurant.gpsCoordinates from DB
+// 4. calculateDistanceInMeters(customer, restaurant)
+// 5. If distance > restaurant.gpsRadiusMeters → reject with 403
+```
+
+---
+
+## Proposed Changes Summary
+
+### [Component 1] Server — Foundation
+- [NEW] `server/package.json` — Express, TypeScript, Mongoose, Socket.IO, Zod, QRCode, PDFKit, Cloudinary
+- [NEW] `server/tsconfig.json` — Strict TS config
+- [NEW] `server/src/config/*` — Constants, DB connection, env config
+- [NEW] `server/src/app.ts` — Express app setup
+- [NEW] `server/src/server.ts` — Entry point
+
+### [Component 2] Server — Interfaces
+- [NEW] `server/src/interfaces/*` — All TypeScript interfaces
+
+### [Component 3] Server — DM Layer (Model + Business Logic)
+- [NEW] `server/src/dm/restaurant/` — Model + DM functions
+- [NEW] `server/src/dm/menu/` — Model + DM functions
+- [NEW] `server/src/dm/category/` — Model + DM functions
+- [NEW] `server/src/dm/dish/` — Model + DM functions
+- [NEW] `server/src/dm/order/` — Model + DM functions (includes 30-min filter for kitchen)
+- [NEW] `server/src/dm/table/` — Model + DM functions
+- [NEW] `server/src/dm/user/` — Model + DM functions
+- [NEW] `server/src/dm/invoice/` — PDF generation DM
+
+### [Component 4] Server — Controllers + Routes + Middlewares + Validators
+- [NEW] `server/src/controllers/*` — Thin handlers calling DM functions
+- [NEW] `server/src/routes/*` — Verb-based route definitions
+- [NEW] `server/src/middlewares/*` — Auth, validation, GPS, error
+- [NEW] `server/src/validators/*` — Zod schemas
+
+### [Component 5] Server — Utilities + Socket
+- [NEW] `server/src/utils/*` — GPS, response wrapper, Cloudinary, logger
+- [NEW] `server/src/socket/kitchen.socket.ts` — Real-time order events
+
+### [Component 6] Client — Admin Dashboard
+- [NEW] `client/admin/` — React + Vite app with:
+  - Google OAuth login
+  - Restaurant registration + GPS setup
+  - Menu builder (categories + dishes, drag-and-drop)
+  - Theme customizer (colors, font, layout)
+  - Table management + QR generation/download
+  - **All orders view** (full history, filters, status changes)
+  - **Invoice generation** (select order → generate → download PDF)
+
+### [Component 7] Client — Customer Menu SPA
+- [NEW] `client/menu/` — React + Vite app:
+  - Menu loaded from QR scan URL params
+  - Applies restaurant's custom theme
+  - Category navigation (with active/inactive filtering)
+  - Dish cards with images, prices, veg/non-veg badge
+  - Cart with quantity adjustment
+  - GPS permission request → order placement
+  - Order confirmation + status tracking
+
+### [Component 8] Client — Kitchen Display
+- [NEW] `client/kitchen/` — React + Vite app:
+  - **Read-only, scroll-only** interface
+  - Order cards grouped by status
+  - Active orders always visible
+  - Delivered/Cancelled orders visible for 30 minutes only
+  - Real-time updates via Socket.IO
+  - Audio notification on new order
+  - Accessed via admin dashboard (no separate login)
+
+---
+
+## Execution Phases
+
+| Phase | Scope | Details |
+|---|---|---|
+| **Phase 1** | Server foundation | Config, DB, interfaces, constants, DM layer setup, error handling |
+| **Phase 2** | Auth + Restaurant + Menu | Google OAuth, restaurant CRUD, menu CRUD, theme |
+| **Phase 3** | Category + Dish + Upload | Category CRUD with reorder, dish CRUD with availability toggle, Cloudinary upload |
+| **Phase 4** | Table + QR + Order | Table CRUD, QR generation, order placement with GPS validation, Socket.IO |
+| **Phase 5** | Invoice + Kitchen orders | Invoice PDF generation, kitchen order filtering (30-min rule) |
+| **Phase 6** | Admin Dashboard | Full React admin frontend |
+| **Phase 7** | Customer Menu SPA | Customer-facing interactive menu |
+| **Phase 8** | Kitchen Display | Read-only kitchen view |
+| **Phase 9** | Polish & testing | End-to-end testing, error handling, UX polish |
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Unit tests for DM layer functions using Jest
+- GPS distance calculation tests
+- Zod validator tests
+- API integration tests using Supertest
+
+### Manual Verification
+- Full flow: Register → Create menu → Add categories/dishes → Generate QR → Scan → Order → Kitchen sees it → Admin changes status → Generate invoice
+- GPS rejection: attempt order from distant location
+- Kitchen 30-min rule: verify delivered orders disappear after 30 min
+- Theme customization: change colors/layout and verify customer menu reflects changes
+
+# QR Menu — Execution Tracker
+
+## Phase 1: Server Foundation
+- [ ] Initialize Node.js + TypeScript project
+- [ ] Create `package.json` with all dependencies
+- [ ] Create `tsconfig.json` (strict mode)
+- [ ] Create `server/src/config/constants.ts`
+- [ ] Create `server/src/config/env.ts`
+- [ ] Create `server/src/config/db.ts`
+- [ ] Create `server/src/utils/response.util.ts`
+- [ ] Create `server/src/utils/logger.ts`
+- [ ] Create `server/src/utils/gps.util.ts`
+- [ ] Create `server/src/utils/cloudinary.util.ts`
+- [ ] Create `server/src/middlewares/error.middleware.ts`
+- [ ] Create `server/src/middlewares/validate.middleware.ts`
+- [ ] Create `server/src/middlewares/auth.middleware.ts`
+- [ ] Create `server/src/middlewares/gps.middleware.ts`
+- [ ] Create `server/src/interfaces/*` (all interfaces)
+- [ ] Create `server/src/app.ts`
+- [ ] Create `server/src/server.ts`
+- [ ] Create `.env.example`
+- [ ] Verify server compiles and starts
+
+## Phase 2: Auth + Restaurant + Menu
+- [ ] Create `dm/user/` (model + DM)
+- [ ] Create `dm/restaurant/` (model + DM)
+- [ ] Create `dm/menu/` (model + DM)
+- [ ] Create auth controller + routes + validator
+- [ ] Create restaurant controller + routes + validator
+- [ ] Create menu controller + routes + validator
+- [ ] Wire routes in index.ts
+- [ ] Test auth flow
+- [ ] Test restaurant CRUD
+- [ ] Test menu CRUD
+
+## Phase 3: Category + Dish + Upload
+- [ ] Create `dm/category/` (model + DM)
+- [ ] Create `dm/dish/` (model + DM)
+- [ ] Create category controller + routes + validator
+- [ ] Create dish controller + routes + validator
+- [ ] Create upload controller + routes
+- [ ] Test category CRUD + reorder
+- [ ] Test dish CRUD + availability toggle
+- [ ] Test image upload to Cloudinary
+
+## Phase 4: Table + QR + Order + Socket.IO
+- [ ] Create `dm/table/` (model + DM)
+- [ ] Create `dm/order/` (model + DM)
+- [ ] Create table controller + routes + validator
+- [ ] Create QR controller + routes
+- [ ] Create order controller + routes + validator
+- [ ] Create `socket/kitchen.socket.ts`
+- [ ] Create public menu route
+- [ ] Test table CRUD + bulk create
+- [ ] Test QR generation
+- [ ] Test order placement with GPS
+- [ ] Test Socket.IO kitchen updates
+
+## Phase 5: Invoice + Kitchen Orders
+- [ ] Create `dm/invoice/invoice.dm.ts`
+- [ ] Create invoice controller + routes
+- [ ] Add kitchen order filtering (30-min rule)
+- [ ] Test invoice PDF generation
+- [ ] Test kitchen order visibility
+
+## Phase 6: Admin Dashboard (React)
+- [ ] Initialize Vite + React + TypeScript
+- [ ] Login page (Google OAuth)
+- [ ] Dashboard overview
+- [ ] Restaurant setup page
+- [ ] Menu builder (categories + dishes)
+- [ ] Theme customizer
+- [ ] Table management + QR
+- [ ] Order management (all orders)
+- [ ] Invoice generation
+
+## Phase 7: Customer Menu SPA (React)
+- [ ] Initialize Vite + React + TypeScript
+- [ ] Menu loading from URL params
+- [ ] Theme application
+- [ ] Category navigation
+- [ ] Dish cards + cart
+- [ ] GPS permission + order placement
+- [ ] Order status tracking
+
+## Phase 8: Kitchen Display (React)
+- [ ] Initialize Vite + React + TypeScript
+- [ ] Order cards layout
+- [ ] Real-time Socket.IO
+- [ ] 30-min visibility rule
+- [ ] Audio notification
+
+## Phase 9: Polish & Testing
+- [ ] End-to-end flow testing
+- [ ] Error handling review
+- [ ] UX polish

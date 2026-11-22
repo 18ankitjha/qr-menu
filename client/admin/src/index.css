@@ -1,0 +1,115 @@
+/* ============================================================
+   QR Menu Admin — Global Design System
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ------- CSS Custom Properties (Design Tokens) ------- */
+
+:root {
+  /* Background */
+  --bg-primary: #f8f9fb;
+  --bg-secondary: #f0f1f4;
+
+  /* Surfaces */
+  --surface: #ffffff;
+  --surface-dark: #111318;
+  --surface-hover: rgba(255, 255, 255, 0.06);
+
+  /* Text */
+  --text-primary: #111318;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --text-light: #f0f1f4;
+
+  /* Borders */
+  --border: #e5e7eb;
+  --border-dark: rgba(255, 255, 255, 0.08);
+
+  /* Accent */
+  --accent: #FF6B35;
+  --accent-hover: #e85d2c;
+  --accent-gradient: linear-gradient(135deg, #FF6B35, #FF8C42);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* ------- Reset & Base ------- */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ------- Scrollbar ------- */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ------- Page Title (shared) ------- */
+
+.page-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.page-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+}

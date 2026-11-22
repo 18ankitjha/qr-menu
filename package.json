@@ -1,0 +1,14 @@
+{
+  "name": "qr-menu-idea",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QR Menu Smart Ordering System — Monorepo",
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:admin": "cd client/admin && npm run dev",
+    "dev:menu": "cd client/menu && npm run dev",
+    "dev:kitchen": "cd client/kitchen && npm run dev",
+    "dev": "npx concurrently \"npm run dev:server\" \"npm run dev:admin\" \"npm run dev:menu\"",
+    "install:all": "cd server && npm install && cd ../client/admin && npm install && cd ../menu && npm install && cd ../kitchen && npm install"
+  }
+}
