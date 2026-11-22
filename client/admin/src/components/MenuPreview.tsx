@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { IRestaurant, IMenu, ICategory, IDish } from '../types';
 import './MenuPreview.css';
 
@@ -39,8 +39,26 @@ export const MenuPreview = ({ restaurant, menu, categories, onClose }: MenuPrevi
     '--mp-bg': theme.backgroundColor,
   } as React.CSSProperties;
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div className="mp-overlay" onClick={onClose}>
+      <button
+        type="button"
+        className="mp-close-btn"
+        onClick={onClose}
+        aria-label="Close preview"
+        title="Close preview (Esc)"
+      >
+        ✕
+      </button>
+
       {/* Phone frame */}
       <div className="mp-phone" onClick={(e) => e.stopPropagation()}>
         {/* Phone chrome */}
@@ -117,7 +135,7 @@ export const MenuPreview = ({ restaurant, menu, categories, onClose }: MenuPrevi
       </div>
 
       {/* Close hint */}
-      <p className="mp-close-hint">Click outside to close</p>
+      <p className="mp-close-hint">Click outside, press Esc or ✕ to close</p>
     </div>
   );
 };

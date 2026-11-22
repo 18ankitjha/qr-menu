@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { SETUP_STEPS } from '../constants';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ROUTES, SETUP_STEPS } from '../constants';
 import './Dashboard.css';
 
 // ============================================================
@@ -38,13 +38,27 @@ const DASHBOARD_CONSTANTS = {
     SUSPENDED: 'Suspended',
     REJECTED: 'Rejected',
   },
+  JUST_DONE_TITLE: '🎉 Your setup is complete!',
+  JUST_DONE_BODY: 'Customers can now scan your table QRs and order. A few more things you can configure:',
+  JUST_DONE_DISMISS: 'Dismiss',
 } as const;
+
+/** Shown once, right after the last Quick Setup step is saved. */
+const NEXT_THINGS = [
+  { route: ROUTES.STAFF, icon: '🧑‍🍳', label: 'Add waiters', hint: 'Give staff a username + PIN to take orders' },
+  { route: ROUTES.RESTAURANT, icon: '🧾', label: 'Billing settings', hint: 'Set GST and service charge for bills' },
+  { route: ROUTES.TABLES, icon: '🖨️', label: 'Print table QRs', hint: 'Download and place QR codes on tables' },
+  { route: ROUTES.ORDERS, icon: '📦', label: 'Watch orders', hint: 'Live orders, billing and payments' },
+] as const;
 
 const APPROVAL_POLL_MS = 30_000;
 
 const Dashboard = () => {
   const { user, restaurant, menu, setup, refreshSetup } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const justCompleted = !!(location.state as { setupJustCompleted?: boolean } | null)?.setupJustCompleted;
+  const dismissJustCompleted = () => navigate(location.pathname, { replace: true, state: null });
 
   useEffect(() => {
     refreshSetup();
@@ -72,6 +86,31 @@ const Dashboard = () => {
           {DASHBOARD_CONSTANTS.GREETING(user?.name || '')}
         </p>
       </div>
+
+      {justCompleted && allDone && (
+        <div className="setup-celebrate" role="status">
+          <div className="setup-celebrate-head">
+            <div>
+              <h2 className="setup-celebrate-title">{DASHBOARD_CONSTANTS.JUST_DONE_TITLE}</h2>
+              <p className="setup-celebrate-body">{DASHBOARD_CONSTANTS.JUST_DONE_BODY}</p>
+            </div>
+            <button className="btn-secondary btn-sm" onClick={dismissJustCompleted}>
+              {DASHBOARD_CONSTANTS.JUST_DONE_DISMISS}
+            </button>
+          </div>
+          <div className="setup-celebrate-grid">
+            {NEXT_THINGS.map((item) => (
+              <button key={item.route} className="setup-celebrate-item" onClick={() => navigate(item.route)}>
+                <span className="setup-icon">{item.icon}</span>
+                <span className="setup-text">
+                  <span className="setup-label">{item.label}</span>
+                  <span className="setup-hint">{item.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="stats-grid">

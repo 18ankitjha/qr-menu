@@ -286,7 +286,7 @@ interface IAuthContext {
   setup: ISetupStatus | null;
   /** Waiters, and owners who finished Quick Setup, see the full app. */
   isSetupComplete: boolean;
-  refreshSetup: () => Promise<void>;
+  refreshSetup: () => Promise<ISetupStatus | null>;
   login: () => void;
   staffLogin: (input: { restaurantCode: string; username: string; pin: string }) => Promise<void>;
   logout: () => Promise<void>;

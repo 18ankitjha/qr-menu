@@ -24,13 +24,42 @@
 .mp-close-hint {
   color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.mp-close-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.mp-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ------- Phone Frame ------- */
 
 .mp-phone {
-  width: 375px;
-  height: 720px;
+  width: min(375px, 100%);
+  /* Fit short screens: leave room for the padding and the close hint */
+  height: min(720px, calc(100vh - 100px));
+  height: min(720px, calc(100dvh - 100px));
+  flex-shrink: 0;
   background: #1a1a1a;
   border-radius: 48px;
   padding: 12px;

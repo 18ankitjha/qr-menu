@@ -225,3 +225,59 @@
   line-height: 1.5;
   color: var(--text-primary);
 }
+
+/* ------- Just completed Quick Setup ------- */
+
+.setup-celebrate {
+  margin-bottom: 32px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.setup-celebrate-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.setup-celebrate-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.setup-celebrate-body {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.setup-celebrate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.setup-celebrate-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.setup-celebrate-item:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}

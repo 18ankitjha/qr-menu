@@ -474,6 +474,14 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
   - Pending or rejected: only step 1 is unlocked, and table/staff APIs return 403.
   - After approval: menu is unlocked and APIs return 200.
 
+### 6d.7 Preview close and setup-complete redirect
+- Phone preview (MenuPreview):
+  - Has a ✕ close button and closes on Esc.
+  - The phone shrinks to fit small screens, so there's always room to click outside.
+- Saving the theme when it's the last setup step redirects to the Dashboard.
+  - The Dashboard shows "🎉 Your setup is complete!" with links to Staff, Restaurant (billing), Tables (print QRs) and Orders.
+- `refreshSetup()` now returns the fresh setup status.
+
 ---
 
 ## 7. Decisions made

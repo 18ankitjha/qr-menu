@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { setMenuTheme, getCategories, getDishes, updateRestaurant, uploadImage, discardImage } from '../services/api';
-import { MESSAGES } from '../constants';
+import { MESSAGES, ROUTES } from '../constants';
 import type { IMenuTheme, ICategory, IDish } from '../types';
 import { usePendingUpload } from '../hooks/usePendingUpload';
 import './FormPage.css';
@@ -37,7 +38,8 @@ interface ICategoryWithDishes extends ICategory {
 }
 
 const Settings = () => {
-  const { menu, restaurant, setMenu, setRestaurant, refreshSetup } = useAuth();
+  const { menu, restaurant, setMenu, setRestaurant, refreshSetup, isSetupComplete } = useAuth();
+  const navigate = useNavigate();
 
   const [theme, setTheme] = useState<IMenuTheme>(
     menu?.theme || {
@@ -88,8 +90,12 @@ const Settings = () => {
       const { data } = await setMenuTheme(menu._id, theme);
       bgUpload.commit();
       setMenu(data.data);
-      refreshSetup();
       setMessage(PAGE.SUCCESS);
+      const next = await refreshSetup();
+      // Saving the theme was the last Quick Setup step: celebrate on the Dashboard
+      if (!isSetupComplete && next?.isComplete) {
+        navigate(ROUTES.DASHBOARD, { state: { setupJustCompleted: true } });
+      }
     } catch {
       setMessage(MESSAGES.ERROR_GENERIC);
     } finally {

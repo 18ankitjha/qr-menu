@@ -97,12 +97,15 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isOwner = !!user && user.kind !== 'STAFF';
 
-  /** Call after anything that can finish a setup step (dish added, tables added, theme saved...). */
-  const refreshSetup = useCallback(async () => {
-    if (!isOwner) return;
+  /**
+   * Call after anything that can finish a setup step (dish added, tables added, theme saved...).
+   * Returns the fresh status (null if it couldn't be loaded).
+   */
+  const refreshSetup = useCallback(async (): Promise<ISetupStatus | null> => {
+    if (!isOwner) return null;
     const restaurantId = restaurant?._id ?? user?.restaurantId;
     const next = await fetchSetup(restaurantId);
-    if (!next) return;
+    if (!next) return null;
     setSetup(next);
     // The super admin approved/rejected since we last loaded the restaurant: refresh its status too
     const knownStatus = restaurant ? restaurant.status ?? 'ACTIVE' : null;
@@ -114,6 +117,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         // keep the old copy; the next refresh will try again
       }
     }
+    return next;
   }, [isOwner, restaurant, user]);
 
   const login = () => {
