@@ -12,6 +12,15 @@ services:
     buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /health
+    # CD: each commit to main deploys automatically, but only after GitHub Actions CI (.github/workflows/ci.yml) passes
+    branch: main
+    autoDeployTrigger: checksPass
+    # Docs-only commits don't redeploy
+    buildFilter:
+      ignoredPaths:
+        - "**/*.md"
+        - docs/**
+        - PLAN/**
     envVars:
       - key: NODE_ENV
         value: production

@@ -1,0 +1,43 @@
+# CI — every push to main and every PR builds the API + all four front-ends.
+# Render (render.yaml: autoDeployTrigger: checksPass) deploys a main commit only when these checks pass.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [server, client/admin, client/menu, client/kitchen, client/super-admin]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # server: tsc · apps: tsc -b && vite build
+      - name: Type-check and build
+        run: npm run build
