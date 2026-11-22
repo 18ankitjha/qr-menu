@@ -39,6 +39,11 @@ App URLs, `QR_BASE_URL` and `GOOGLE_CALLBACK_URL` default to `PUBLIC_URL` → Re
 allow `0.0.0.0/0` in MongoDB Atlas → Network Access, and regenerate table QRs after the first deploy (old ones
 encode the previous host). Free plan sleeps after ~15 min idle (first request then takes ~50 s).
 
+**CI/CD:** `.github/workflows/ci.yml` builds the server and all four apps on every push/PR to `main`.
+`render.yaml` sets `autoDeployTrigger: checksPass`, so Render deploys a `main` commit only after CI passes
+(a failing build never goes live). Commits touching only `*.md` / `docs/` / `PLAN/` don't redeploy; add
+`[skip render]` to a commit message to skip a deploy manually.
+
 ## Production (example: Nginx)
 
 Build each app (`npm run build` → `client/<app>/dist`) and serve the folders under their paths; the API
