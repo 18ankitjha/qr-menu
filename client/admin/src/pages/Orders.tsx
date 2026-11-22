@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAllOrders, getBills, setOrderStatus, getOrderPdfUrl, getBillPdfUrl, getErrorMessage } from '../services/api';
 import { ORDER_STATUS, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, MESSAGES } from '../constants';
@@ -20,16 +21,18 @@ import { canEditOrder } from '../utils/order';
 
 const PAGE = {
   TITLE: 'Orders',
-  SUBTITLE: 'Current shows the customer now at each table. Tap "Orders & Bill" → Generate → Cash/UPI/Card to finish a table.',
+  SUBTITLE: 'Current → generate bill → Billed → mark paid → Completed.',
   NEW_ORDER: 'New Order',
   PLACED_BY: (name: string) => `by ${name}`,
   EDITED_BY: (name: string) => `edited by ${name}`,
   EDIT: 'Edit',
   NO_CURRENT: 'No open orders. Orders for a table appear here until its bill is generated.',
-  NO_COMPLETED: 'No billed orders yet.',
+  NO_BILLED: 'No bills waiting for payment.',
+  NO_COMPLETED: 'No paid bills yet.',
   NO_RESTAURANT: 'Register a restaurant first.',
   TAB_CURRENT: 'Current',
-  TAB_COMPLETED: 'Completed (billed)',
+  TAB_BILLED: 'Billed',
+  TAB_COMPLETED: 'Completed',
   FILTER_ALL: 'All',
   ITEM_SEPARATOR: ' × ',
   CURRENCY: '₹',
@@ -43,7 +46,8 @@ const PAGE = {
   UNPAID: 'Unpaid',
   BILL_PDF: 'Bill PDF',
   NOT_CHARGED: 'not charged',
-  UNPAID_COUNT: (n: number) => `${n} unpaid`,
+  MARK_PAID: 'Mark paid:',
+  PAID_SUCCESS: (no: string, mode: string) => `Bill ${no} marked paid (${mode}) — moved to Completed.`,
 } as const;
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
@@ -58,7 +62,8 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
 
 const NOT_CHARGED_STATUSES: string[] = [ORDER_STATUS.CANCELLED, ORDER_STATUS.CANNOT_DELIVER];
 
-type View = 'current' | 'completed';
+type View = 'current' | 'billed' | 'completed';
+const VIEWS: View[] = ['current', 'billed', 'completed'];
 
 interface OrderGroup {
   key: string;
@@ -99,7 +104,9 @@ const Orders = () => {
   const [showTakeOrder, setShowTakeOrder] = useState(false);
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [bills, setBills] = useState<IBill[]>([]);
-  const [view, setView] = useState<View>('current');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const view: View = VIEWS.includes(tabParam as View) ? (tabParam as View) : 'current';
   const [filter, setFilter] = useState('');
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -145,7 +152,7 @@ const Orders = () => {
   };
 
   const switchView = (next: View) => {
-    setView(next);
+    setSearchParams(next === 'current' ? {} : { tab: next }, { replace: true });
     setFilter('');
   };
 
@@ -153,20 +160,24 @@ const Orders = () => {
 
   // A bill closes a table's session: the current customer's orders are the unbilled ones placed
   // after the table's last billed order. Older unbilled ones are cancelled leftovers of a past customer.
-  const { currentOrders, billedOrders } = useMemo(() => {
+  // Billed orders split by their bill: UNPAID → Billed tab, PAID → Completed tab.
+  const { currentOrders, unpaidOrders, paidOrders } = useMemo(() => {
     const lastBilledAt = new Map<string, number>();
     orders.forEach((o) => {
       if (!o.billId) return;
       const t = Date.parse(o.createdAt);
       if (t > (lastBilledAt.get(o.tableId) ?? 0)) lastBilledAt.set(o.tableId, t);
     });
+    const billStatus = new Map(bills.map((b) => [b._id, b.status]));
+    const billed = orders.filter((o) => !!o.billId);
     return {
       currentOrders: orders.filter((o) => !o.billId && Date.parse(o.createdAt) > (lastBilledAt.get(o.tableId) ?? 0)),
-      billedOrders: orders.filter((o) => !!o.billId),
+      unpaidOrders: billed.filter((o) => billStatus.get(o.billId as string) === 'UNPAID'),
+      paidOrders: billed.filter((o) => billStatus.get(o.billId as string) !== 'UNPAID'),
     };
-  }, [orders]);
+  }, [orders, bills]);
 
-  const viewOrders = view === 'current' ? currentOrders : billedOrders;
+  const viewOrders = view === 'current' ? currentOrders : view === 'billed' ? unpaidOrders : paidOrders;
 
   const groups = useMemo(() => {
     const filtered = filter ? viewOrders.filter((o) => o.status === filter) : viewOrders;
@@ -180,8 +191,14 @@ const Orders = () => {
   }, [viewOrders, view, filter, bills]);
 
   const currentTableCount = useMemo(() => new Set(currentOrders.map((o) => o.tableId)).size, [currentOrders]);
-  const completedBillCount = useMemo(() => new Set(billedOrders.map((o) => o.billId)).size, [billedOrders]);
-  const unpaidBillCount = useMemo(() => bills.filter((b) => b.status !== 'PAID').length, [bills]);
+  const billedCount = useMemo(() => new Set(unpaidOrders.map((o) => o.billId)).size, [unpaidOrders]);
+  const completedCount = useMemo(() => new Set(paidOrders.map((o) => o.billId)).size, [paidOrders]);
+
+  const handlePaid = (bill: IBill) => {
+    setIsError(false);
+    setMessage(PAGE.PAID_SUCCESS(bill.billNumber, bill.paymentMode ?? ''));
+    fetchOrders();
+  };
 
   if (!restaurant) {
     return (
@@ -307,11 +324,16 @@ const Orders = () => {
           {PAGE.TAB_CURRENT} ({currentTableCount})
         </button>
         <button
+          className={`orders-tab ${view === 'billed' ? 'orders-tab--active' : ''}`}
+          onClick={() => switchView('billed')}
+        >
+          {PAGE.TAB_BILLED} ({billedCount})
+        </button>
+        <button
           className={`orders-tab ${view === 'completed' ? 'orders-tab--active' : ''}`}
           onClick={() => switchView('completed')}
         >
-          {PAGE.TAB_COMPLETED} ({completedBillCount})
-          {unpaidBillCount > 0 && <span className="bill-chip bill-chip--unpaid" style={{ marginLeft: 6 }}>{PAGE.UNPAID_COUNT(unpaidBillCount)}</span>}
+          {PAGE.TAB_COMPLETED} ({completedCount})
         </button>
       </div>
 
@@ -337,7 +359,7 @@ const Orders = () => {
       {groups.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📦</div>
-          <p className="empty-text">{view === 'current' ? PAGE.NO_CURRENT : PAGE.NO_COMPLETED}</p>
+          <p className="empty-text">{view === 'current' ? PAGE.NO_CURRENT : view === 'billed' ? PAGE.NO_BILLED : PAGE.NO_COMPLETED}</p>
         </div>
       ) : (
         <div className="table-groups">
@@ -357,7 +379,7 @@ const Orders = () => {
                     </span>
                     {bill && (
                       <span className={`bill-chip ${bill.status === 'PAID' ? '' : 'bill-chip--unpaid'}`}>
-                        {bill.status === 'PAID' ? PAGE.PAID : PAGE.UNPAID}
+                        {bill.status === 'PAID' ? `${PAGE.PAID} · ${bill.paymentMode ?? ''}` : PAGE.UNPAID}
                       </span>
                     )}
                     <span className="table-group-customers">
@@ -377,7 +399,12 @@ const Orders = () => {
                     ) : (
                       bill && (
                         <>
-                          {bill.status !== 'PAID' && <PayButtons bill={bill} onPaid={fetchOrders} />}
+                          {bill.status === 'UNPAID' && (
+                            <div className="mark-paid">
+                              <span className="mark-paid-label">{PAGE.MARK_PAID}</span>
+                              <PayButtons bill={bill} onPaid={handlePaid} />
+                            </div>
+                          )}
                           <button className="btn-invoice" onClick={() => openPdf(getBillPdfUrl(bill._id))}>
                             🧾 {PAGE.BILL_PDF}
                           </button>
@@ -400,7 +427,10 @@ const Orders = () => {
           tableId={billTable.tableId}
           tableNumber={billTable.tableNumber}
           onClose={() => setBillTable(null)}
-          onBillGenerated={fetchOrders}
+          onBillGenerated={() => {
+            fetchOrders();
+            switchView('billed');
+          }}
         />
       )}
 
