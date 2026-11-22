@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../../auth/middlewares/auth.middleware';
 import {
   ALL_RESTAURANT_ROLES,
-  OWNER_ONLY,
+  requireApprovedOwner,
   requireRestaurantAccess,
 } from '../../auth/middlewares/restaurant-access.middleware';
 import {
@@ -28,7 +28,7 @@ import * as DishController from '../controllers/dish.controller';
 
 const router = Router();
 
-const ownerOfDish = requireRestaurantAccess(OWNER_ONLY, dishFromParam('id'));
+const ownerOfDish = requireApprovedOwner(dishFromParam('id'));
 
 router.use(requireAuth);
 
@@ -36,7 +36,7 @@ router.use(requireAuth);
 router.post(
   '/add',
   validateBody(addDishSchema),
-  requireRestaurantAccess(OWNER_ONLY, menuFromBody('menuId')),
+  requireApprovedOwner(menuFromBody('menuId')),
   DishController.addDish
 );
 
@@ -86,7 +86,7 @@ router.delete(
 router.patch(
   '/reorder',
   validateBody(reorderDishesSchema),
-  requireRestaurantAccess(OWNER_ONLY, dishFromReorderItems),
+  requireApprovedOwner(dishFromReorderItems),
   DishController.reorderDishes
 );
 

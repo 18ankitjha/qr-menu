@@ -36,6 +36,15 @@ export const isRestaurantOperational = (
   restaurant: Pick<IRestaurant, 'status' | 'isActive'>
 ): boolean => restaurant.isActive && getEffectiveStatus(restaurant) === RestaurantStatus.ACTIVE;
 
+/**
+ * Has the super admin approved this restaurant (it may since have been suspended)?
+ * Until then the owner can only fill in restaurant details (Quick Setup step 1).
+ */
+export const isRestaurantApproved = (restaurant: Pick<IRestaurant, 'status'>): boolean => {
+  const status = getEffectiveStatus(restaurant);
+  return status === RestaurantStatus.ACTIVE || status === RestaurantStatus.SUSPENDED;
+};
+
 /** Mongo filter for a status; `null` also matches documents that have no status field. */
 const statusFilter = (status: RestaurantStatus) =>
   status === LEGACY_RESTAURANT_STATUS ? { status: { $in: [status, null] } } : { status };

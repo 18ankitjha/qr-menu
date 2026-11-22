@@ -80,10 +80,13 @@ interface IMenu {
 
 type SetupStepKey = 'restaurant' | 'menu' | 'tables' | 'theme';
 
+type SetupLockReason = 'PREVIOUS_STEP' | 'AWAITING_APPROVAL';
+
 interface ISetupStepStatus {
   step: SetupStepKey;
   done: boolean;
   unlocked: boolean;
+  lockedReason: SetupLockReason | null;
 }
 
 interface ISetupStatus {
@@ -91,6 +94,9 @@ interface ISetupStatus {
   completedCount: number;
   totalSteps: number;
   isComplete: boolean;
+  /** Restaurant registered but not yet approved by the super admin; steps 2+ stay locked. */
+  awaitingApproval: boolean;
+  restaurantStatus: NonNullable<IRestaurant['status']> | null;
   nextStep: SetupStepKey | null;
   counts: { dishes: number; tables: number };
 }

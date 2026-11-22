@@ -1,10 +1,9 @@
 import { Router, Request } from 'express';
 import { requireAuth } from '../../auth/middlewares/auth.middleware';
 import {
-  OWNER_ONLY,
   fromBody,
   fromParam,
-  requireRestaurantAccess,
+  requireApprovedOwner,
 } from '../../auth/middlewares/restaurant-access.middleware';
 import { validateBody, validateParams } from '../../../middlewares/validate.middleware';
 import {
@@ -32,7 +31,7 @@ router.use(requireAuth);
 router.post(
   '/add',
   validateBody(addStaffSchema),
-  requireRestaurantAccess(OWNER_ONLY, fromBody('restaurantId')),
+  requireApprovedOwner(fromBody('restaurantId')),
   StaffController.addStaff
 );
 
@@ -40,7 +39,7 @@ router.post(
 router.get(
   '/getAll/:restaurantId',
   validateParams(restaurantIdParamSchema),
-  requireRestaurantAccess(OWNER_ONLY, fromParam('restaurantId')),
+  requireApprovedOwner(fromParam('restaurantId')),
   StaffController.getAllStaff
 );
 
@@ -49,7 +48,7 @@ router.post(
   '/resetPin/:id',
   validateParams(staffIdParamSchema),
   validateBody(resetPinSchema),
-  requireRestaurantAccess(OWNER_ONLY, restaurantOfStaff),
+  requireApprovedOwner(restaurantOfStaff),
   StaffController.resetPin
 );
 
@@ -57,7 +56,7 @@ router.post(
 router.get(
   '/getPin/:id',
   validateParams(staffIdParamSchema),
-  requireRestaurantAccess(OWNER_ONLY, restaurantOfStaff),
+  requireApprovedOwner(restaurantOfStaff),
   StaffController.getPin
 );
 
@@ -66,7 +65,7 @@ router.patch(
   '/setActive/:id',
   validateParams(staffIdParamSchema),
   validateBody(setStaffActiveSchema),
-  requireRestaurantAccess(OWNER_ONLY, restaurantOfStaff),
+  requireApprovedOwner(restaurantOfStaff),
   StaffController.setActive
 );
 
@@ -74,7 +73,7 @@ router.patch(
 router.delete(
   '/remove/:id',
   validateParams(staffIdParamSchema),
-  requireRestaurantAccess(OWNER_ONLY, restaurantOfStaff),
+  requireApprovedOwner(restaurantOfStaff),
   StaffController.removeStaff
 );
 

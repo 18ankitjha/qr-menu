@@ -13,7 +13,7 @@ const BANNERS: Record<BannerStatus, { tone: 'info' | 'danger'; title: string; bo
   PENDING_APPROVAL: {
     tone: 'info',
     title: '⏳ Waiting for approval',
-    body: 'Our team is reviewing your restaurant. You can set up your menu and tables now — customers can order once it is approved.',
+    body: 'Our team is reviewing your restaurant. You can edit your restaurant details now — menu, tables and theme unlock once it is approved.',
   },
   SUSPENDED: {
     tone: 'danger',

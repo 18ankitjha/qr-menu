@@ -454,6 +454,26 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
   - Images orphaned before this change stay in Cloudinary (a one-off sweep can be added).
   - Deleting a category doesn't cascade to its dishes (pre-existing).
 
+### 6d.6 Quick Setup waits for super admin approval
+- **Step 1 (Restaurant details)** is always open. **Steps 2–4 (Menu, Tables, Theme)** unlock only once the super admin
+  approves the restaurant (status ACTIVE, or SUSPENDED after an earlier approval) *and* the previous step is done.
+- `GET /setup/getStatus/:restaurantId` now also returns:
+  - `steps[].lockedReason`: `PREVIOUS_STEP` or `AWAITING_APPROVAL`
+  - `awaitingApproval`
+  - `restaurantStatus`
+  - `isComplete` is true only when the restaurant is approved.
+- Server guard `requireApprovedOwner` (`auth/middlewares/restaurant-access.middleware.ts`) = owner check + approval check.
+  It is used on every owner route for menu, category, dish, table/QR and staff.
+  Before approval these routes return 403 "Your restaurant is waiting for approval…". Restaurant routes (step 1) are not guarded.
+- Admin UI:
+  - Dashboard cards show "⏳ Unlocks after approval" with a blue note, and re-check every 30s so they unlock without a reload.
+  - The step banner's Next button is disabled with the same message.
+  - The sidebar says "Waiting for approval".
+  - The status banner text now matches.
+- Verified on a temporary pending restaurant (deleted afterwards):
+  - Pending or rejected: only step 1 is unlocked, and table/staff APIs return 403.
+  - After approval: menu is unlocked and APIs return 200.
+
 ---
 
 ## 7. Decisions made

@@ -16,6 +16,8 @@ const LAYOUT_TEXT = {
   SETUP_LOCKED_TITLE: 'Finish Quick Setup',
   SETUP_LOCKED_BODY: (done: number, total: number) =>
     `${done}/${total} steps done. The other sections unlock once setup is complete.`,
+  APPROVAL_LOCKED_TITLE: 'Waiting for approval',
+  APPROVAL_LOCKED_BODY: 'The next setup steps unlock once our team approves your restaurant.',
   OPEN_MENU: 'Open menu',
   CLOSE_MENU: 'Close menu',
 } as const;
@@ -85,9 +87,13 @@ const Layout = () => {
 
           {!isSetupComplete && setup && (
             <div className="nav-setup-locked">
-              <span className="nav-setup-locked-title">🔒 {LAYOUT_TEXT.SETUP_LOCKED_TITLE}</span>
+              <span className="nav-setup-locked-title">
+                {setup.awaitingApproval ? `⏳ ${LAYOUT_TEXT.APPROVAL_LOCKED_TITLE}` : `🔒 ${LAYOUT_TEXT.SETUP_LOCKED_TITLE}`}
+              </span>
               <span className="nav-setup-locked-body">
-                {LAYOUT_TEXT.SETUP_LOCKED_BODY(setup.completedCount, setup.totalSteps)}
+                {setup.awaitingApproval
+                  ? LAYOUT_TEXT.APPROVAL_LOCKED_BODY
+                  : LAYOUT_TEXT.SETUP_LOCKED_BODY(setup.completedCount, setup.totalSteps)}
               </span>
             </div>
           )}

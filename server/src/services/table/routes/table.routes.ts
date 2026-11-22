@@ -2,9 +2,9 @@ import { Router, Request } from 'express';
 import { requireAuth } from '../../auth/middlewares/auth.middleware';
 import {
   ALL_RESTAURANT_ROLES,
-  OWNER_ONLY,
   fromBody,
   fromParam,
+  requireApprovedOwner,
   requireRestaurantAccess,
 } from '../../auth/middlewares/restaurant-access.middleware';
 import { validateBody, validateParams } from '../../../middlewares/validate.middleware';
@@ -34,7 +34,7 @@ router.use(requireAuth);
 router.post(
   '/add',
   validateBody(addTableSchema),
-  requireRestaurantAccess(OWNER_ONLY, fromBody('restaurantId')),
+  requireApprovedOwner(fromBody('restaurantId')),
   TableController.addTable
 );
 
@@ -42,7 +42,7 @@ router.post(
 router.post(
   '/addBulk',
   validateBody(bulkAddTablesSchema),
-  requireRestaurantAccess(OWNER_ONLY, fromBody('restaurantId')),
+  requireApprovedOwner(fromBody('restaurantId')),
   TableController.addBulkTables
 );
 
@@ -58,7 +58,7 @@ router.get(
 router.delete(
   '/delete/:id',
   validateParams(tableIdParamSchema),
-  requireRestaurantAccess(OWNER_ONLY, tableFromParam('id')),
+  requireApprovedOwner(tableFromParam('id')),
   TableController.deleteTable
 );
 
@@ -66,7 +66,7 @@ router.delete(
 router.post(
   '/generateQr/:tableId',
   validateParams(tableIdQrParamSchema),
-  requireRestaurantAccess(OWNER_ONLY, tableFromParam('tableId')),
+  requireApprovedOwner(tableFromParam('tableId')),
   QrController.generateQr
 );
 

@@ -173,6 +173,7 @@ export const ERROR_MESSAGES = {
   IMAGE_TOO_LARGE: 'Image size exceeds the maximum allowed size.',
   SUPER_ADMIN_ONLY: 'Only platform super admins can access this resource.',
   RESTAURANT_NOT_OPERATIONAL: 'This restaurant is not accepting orders right now.',
+  RESTAURANT_NOT_APPROVED: 'Your restaurant is waiting for approval. You can continue setup once it is approved.',
   INVALID_RESTAURANT_STATUS_TRANSITION: (action: string, status: string) =>
     `Cannot ${action.toLowerCase()} a restaurant that is ${status}.`,
   STATUS_REASON_REQUIRED: 'A reason is required for this action.',

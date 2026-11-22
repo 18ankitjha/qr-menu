@@ -19,6 +19,9 @@ const DASHBOARD_CONSTANTS = {
   SETUP_ERROR: 'Could not load setup progress.',
   STEP_NUMBER: (n: number) => `Step ${n}`,
   STEP_LOCKED: (prev: string) => `Complete "${prev}" first`,
+  STEP_AWAITING_APPROVAL: '⏳ Unlocks after approval',
+  APPROVAL_NOTE: 'Step 1 is done. Our team is reviewing your restaurant — the remaining steps unlock automatically once it is approved.',
+  REJECTED_NOTE: 'Your restaurant was not approved, so the remaining steps are locked. You can update your details in step 1.',
   STEP_START: 'Start',
   STEP_DONE: 'Done — edit',
   STAT_LABELS: {
@@ -37,6 +40,8 @@ const DASHBOARD_CONSTANTS = {
   },
 } as const;
 
+const APPROVAL_POLL_MS = 30_000;
+
 const Dashboard = () => {
   const { user, restaurant, menu, setup, refreshSetup } = useAuth();
   const navigate = useNavigate();
@@ -44,6 +49,14 @@ const Dashboard = () => {
   useEffect(() => {
     refreshSetup();
   }, [refreshSetup]);
+
+  // While waiting for the super admin, check now and then so the steps unlock without a reload
+  const awaitingApproval = !!setup?.awaitingApproval;
+  useEffect(() => {
+    if (!awaitingApproval) return;
+    const timer = window.setInterval(refreshSetup, APPROVAL_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [awaitingApproval, refreshSetup]);
 
   const allDone = !!setup?.isComplete;
   const completedCount = setup?.completedCount ?? 0;
@@ -121,12 +134,23 @@ const Dashboard = () => {
               <span className="progress-text">{completedCount}/{totalSteps}</span>
             </div>
 
+            {awaitingApproval && (
+              <p className="setup-approval-note" role="status">
+                {setup.restaurantStatus === 'REJECTED'
+                  ? DASHBOARD_CONSTANTS.REJECTED_NOTE
+                  : DASHBOARD_CONSTANTS.APPROVAL_NOTE}
+              </p>
+            )}
+
             <div className="setup-grid">
               {SETUP_STEPS.map((step, i) => {
                 const status = setup.steps.find((s) => s.step === step.step);
                 const done = !!status?.done;
                 const locked = !status?.unlocked;
-                const isCurrent = setup.nextStep === step.step;
+                const lockedText = status?.lockedReason === 'AWAITING_APPROVAL'
+                  ? DASHBOARD_CONSTANTS.STEP_AWAITING_APPROVAL
+                  : DASHBOARD_CONSTANTS.STEP_LOCKED(SETUP_STEPS[i - 1]?.label ?? '');
+                const isCurrent = !locked && setup.nextStep === step.step;
                 const cardClass = [
                   'setup-card',
                   done && 'setup-card--done',
@@ -140,7 +164,7 @@ const Dashboard = () => {
                     className={cardClass}
                     disabled={locked}
                     onClick={() => navigate(step.route)}
-                    title={locked ? DASHBOARD_CONSTANTS.STEP_LOCKED(SETUP_STEPS[i - 1]?.label ?? '') : step.hint}
+                    title={locked ? lockedText : step.hint}
                   >
                     <span className="setup-icon">{locked ? '🔒' : step.icon}</span>
                     <span className="setup-text">
@@ -148,7 +172,7 @@ const Dashboard = () => {
                       <span className="setup-label">{step.label}</span>
                       <span className="setup-hint">
                         {locked
-                          ? DASHBOARD_CONSTANTS.STEP_LOCKED(SETUP_STEPS[i - 1]?.label ?? '')
+                          ? lockedText
                           : done
                             ? DASHBOARD_CONSTANTS.STEP_DONE
                             : step.hint}

@@ -18,10 +18,17 @@ const AuthContext = createContext<IAuthContext | null>(null);
 
 /** Owner without a restaurant yet: only the first step is open. */
 const NO_RESTAURANT_SETUP: ISetupStatus = {
-  steps: SETUP_STEPS.map((s, i) => ({ step: s.step, done: false, unlocked: i === 0 })),
+  steps: SETUP_STEPS.map((s, i) => ({
+    step: s.step,
+    done: false,
+    unlocked: i === 0,
+    lockedReason: i === 0 ? null : 'PREVIOUS_STEP',
+  })),
   completedCount: 0,
   totalSteps: SETUP_STEPS.length,
   isComplete: false,
+  awaitingApproval: false,
+  restaurantStatus: null,
   nextStep: SETUP_STEPS[0].step,
   counts: { dishes: 0, tables: 0 },
 };
@@ -93,8 +100,20 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   /** Call after anything that can finish a setup step (dish added, tables added, theme saved...). */
   const refreshSetup = useCallback(async () => {
     if (!isOwner) return;
-    const next = await fetchSetup(restaurant?._id ?? user?.restaurantId);
-    if (next) setSetup(next);
+    const restaurantId = restaurant?._id ?? user?.restaurantId;
+    const next = await fetchSetup(restaurantId);
+    if (!next) return;
+    setSetup(next);
+    // The super admin approved/rejected since we last loaded the restaurant: refresh its status too
+    const knownStatus = restaurant ? restaurant.status ?? 'ACTIVE' : null;
+    if (restaurantId && restaurant && next.restaurantStatus && knownStatus !== next.restaurantStatus) {
+      try {
+        const { data } = await getRestaurant(restaurantId);
+        setRestaurant(data.data);
+      } catch {
+        // keep the old copy; the next refresh will try again
+      }
+    }
   }, [isOwner, restaurant, user]);
 
   const login = () => {

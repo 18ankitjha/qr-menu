@@ -2,7 +2,7 @@ import { DEFAULT_MENU_THEME } from '../../../config/constants';
 import { MenuDM, DishDM, IMenu } from '../../menu';
 import { TableDM } from '../../table';
 import { RestaurantDM } from '../../restaurant';
-import { SETUP_STEP_ORDER, SetupStep } from '../constants/setup.constants';
+import { SETUP_STEP_ORDER, SetupLockReason, SetupStep } from '../constants/setup.constants';
 import { ISetupStatus } from '../interfaces/setup.interface';
 
 // ============================================================
@@ -35,9 +35,19 @@ export const getSetupStatus = async (restaurantId: string): Promise<ISetupStatus
     [SetupStep.THEME]: !!menu && isThemeCustomized(menu),
   };
 
+  // Step 1 (restaurant details) is always open; everything after it waits for super admin approval
+  const approved = !!restaurant && RestaurantDM.isRestaurantApproved(restaurant);
+  const awaitingApproval = !!restaurant && !approved;
+
   let allPreviousDone = true;
-  const steps = SETUP_STEP_ORDER.map((step) => {
-    const status = { step, done: done[step], unlocked: allPreviousDone };
+  const steps = SETUP_STEP_ORDER.map((step, index) => {
+    const unlocked = allPreviousDone && (index === 0 || approved);
+    const lockedReason: SetupLockReason | null = unlocked
+      ? null
+      : awaitingApproval
+        ? SetupLockReason.AWAITING_APPROVAL
+        : SetupLockReason.PREVIOUS_STEP;
+    const status = { step, done: done[step], unlocked, lockedReason };
     allPreviousDone = allPreviousDone && done[step];
     return status;
   });
@@ -49,7 +59,9 @@ export const getSetupStatus = async (restaurantId: string): Promise<ISetupStatus
     steps,
     completedCount,
     totalSteps: steps.length,
-    isComplete: nextStep === null,
+    isComplete: nextStep === null && approved,
+    awaitingApproval,
+    restaurantStatus: restaurant ? RestaurantDM.getEffectiveStatus(restaurant) : null,
     nextStep,
     counts: { dishes, tables },
   };

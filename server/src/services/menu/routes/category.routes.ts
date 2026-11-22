@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../../auth/middlewares/auth.middleware';
 import {
   ALL_RESTAURANT_ROLES,
-  OWNER_ONLY,
+  requireApprovedOwner,
   requireRestaurantAccess,
 } from '../../auth/middlewares/restaurant-access.middleware';
 import {
@@ -27,7 +27,7 @@ import * as CategoryController from '../controllers/category.controller';
 
 const router = Router();
 
-const ownerOfCategory = requireRestaurantAccess(OWNER_ONLY, categoryFromParam('id'));
+const ownerOfCategory = requireApprovedOwner(categoryFromParam('id'));
 
 router.use(requireAuth);
 
@@ -35,7 +35,7 @@ router.use(requireAuth);
 router.post(
   '/add',
   validateBody(addCategorySchema),
-  requireRestaurantAccess(OWNER_ONLY, menuFromBody('menuId')),
+  requireApprovedOwner(menuFromBody('menuId')),
   CategoryController.addCategory
 );
 
@@ -76,7 +76,7 @@ router.delete(
 router.patch(
   '/reorder',
   validateBody(reorderCategoriesSchema),
-  requireRestaurantAccess(OWNER_ONLY, categoryFromReorderItems),
+  requireApprovedOwner(categoryFromReorderItems),
   CategoryController.reorderCategories
 );
 

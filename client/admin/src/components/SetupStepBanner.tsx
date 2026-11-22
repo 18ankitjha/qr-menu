@@ -5,13 +5,15 @@ import './SetupStepBanner.css';
 
 // ============================================================
 // Setup Step Banner — on a Quick Setup page (while setup is incomplete) shows which step this is,
-// what to do, and a "Next" button that only enables once this step is done.
+// what to do, and a "Next" button that only enables once the next step is unlocked
+// (this step done and, after step 1, the restaurant approved by the super admin).
 // ============================================================
 
 const TEXT = {
   STEP_OF: (n: number, total: number) => `Step ${n} of ${total}`,
   BACK: '← Quick Setup',
   NEXT: (label: string) => `Next: ${label} →`,
+  AWAITING_APPROVAL: '⏳ Next steps unlock after approval',
   DONE: '✓ Done',
   TODO: 'To do',
 } as const;
@@ -29,6 +31,8 @@ const SetupStepBanner = () => {
   const step = SETUP_STEPS[index];
   const next = SETUP_STEPS[index + 1];
   const done = setup.steps.find((s) => s.step === step.step)?.done ?? false;
+  const nextStatus = next && setup.steps.find((s) => s.step === next.step);
+  const nextAwaitingApproval = nextStatus?.lockedReason === 'AWAITING_APPROVAL';
 
   return (
     <div className={`setup-step-banner ${done ? 'setup-step-banner--done' : ''}`}>
@@ -47,8 +51,12 @@ const SetupStepBanner = () => {
           {TEXT.BACK}
         </button>
         {next && (
-          <button className="btn-primary btn-sm" disabled={!done} onClick={() => navigate(next.route)}>
-            {TEXT.NEXT(next.label)}
+          <button
+            className="btn-primary btn-sm"
+            disabled={!nextStatus?.unlocked}
+            onClick={() => navigate(next.route)}
+          >
+            {nextAwaitingApproval ? TEXT.AWAITING_APPROVAL : TEXT.NEXT(next.label)}
           </button>
         )}
       </div>

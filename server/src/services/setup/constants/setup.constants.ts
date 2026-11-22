@@ -17,6 +17,12 @@ export const SETUP_STEP_ORDER: SetupStep[] = [
   SetupStep.THEME,
 ];
 
+/** Why a step can't be opened yet. */
+export enum SetupLockReason {
+  PREVIOUS_STEP = 'PREVIOUS_STEP',
+  AWAITING_APPROVAL = 'AWAITING_APPROVAL',
+}
+
 export const SETUP_MESSAGES = {
   FETCHED: 'Setup status fetched',
 } as const;

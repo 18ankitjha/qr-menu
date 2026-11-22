@@ -65,3 +65,35 @@ export const requireRestaurantAccess =
       next(error);
     }
   };
+
+/**
+ * Blocks changes (menu, tables, staff, theme) until the super admin approves the restaurant.
+ * Must run after `requireRestaurantAccess`, which sets `req.auth.restaurantId`.
+ */
+export const requireApprovedRestaurant = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const restaurantId = req.auth?.restaurantId;
+    const restaurant = restaurantId ? await RestaurantDM.getRestaurantById(restaurantId) : null;
+    if (!restaurant) {
+      sendError(res, ERROR_MESSAGES.RESTAURANT_NOT_FOUND, 404);
+      return;
+    }
+    if (!RestaurantDM.isRestaurantApproved(restaurant)) {
+      sendError(res, ERROR_MESSAGES.RESTAURANT_NOT_APPROVED, 403);
+      return;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** Owner of the restaurant, and the restaurant is approved — for setup/management writes. */
+export const requireApprovedOwner = (resolveRestaurantId: RestaurantIdResolver) => [
+  requireRestaurantAccess(OWNER_ONLY, resolveRestaurantId),
+  requireApprovedRestaurant,
+];

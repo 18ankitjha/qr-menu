@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { requireAuth } from '../../auth/middlewares/auth.middleware';
 import {
   ALL_RESTAURANT_ROLES,
-  OWNER_ONLY,
   fromBody,
   fromParam,
+  requireApprovedOwner,
   requireRestaurantAccess,
 } from '../../auth/middlewares/restaurant-access.middleware';
 import { menuFromParam } from '../middlewares/menu-access.middleware';
@@ -30,7 +30,7 @@ router.use(requireAuth);
 router.post(
   '/create',
   validateBody(createMenuSchema),
-  requireRestaurantAccess(OWNER_ONLY, fromBody('restaurantId')),
+  requireApprovedOwner(fromBody('restaurantId')),
   MenuController.createMenu
 );
 
@@ -46,7 +46,7 @@ router.get(
 router.put(
   '/update/:menuId',
   validateParams(menuIdParamSchema),
-  requireRestaurantAccess(OWNER_ONLY, menuFromParam('menuId')),
+  requireApprovedOwner(menuFromParam('menuId')),
   validateBody(updateMenuSchema),
   MenuController.updateMenu
 );
@@ -55,7 +55,7 @@ router.put(
 router.put(
   '/setTheme/:menuId',
   validateParams(menuIdParamSchema),
-  requireRestaurantAccess(OWNER_ONLY, menuFromParam('menuId')),
+  requireApprovedOwner(menuFromParam('menuId')),
   validateBody(setMenuThemeSchema),
   MenuController.setTheme
 );
