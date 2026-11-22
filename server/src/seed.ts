@@ -1,13 +1,14 @@
 import mongoose from 'mongoose';
 import { env } from './config/env';
-import { UserModel } from './dm/user/user.model';
-import { RestaurantModel } from './dm/restaurant/restaurant.model';
-import { MenuModel } from './dm/menu/menu.model';
-import { CategoryModel } from './dm/category/category.model';
-import { DishModel } from './dm/dish/dish.model';
-import { TableModel } from './dm/table/table.model';
-import { OrderModel } from './dm/order/order.model';
-import { OrderStatus, DEFAULT_MENU_THEME } from './config/constants';
+import { UserModel } from './services/auth/dm/user.model';
+import { RestaurantModel } from './services/restaurant/dm/restaurant.model';
+import { MenuModel } from './services/menu/dm/menu.model';
+import { CategoryModel } from './services/menu/dm/category.model';
+import { DishModel } from './services/menu/dm/dish.model';
+import { TableModel } from './services/table/dm/table.model';
+import { OrderModel } from './services/order/dm/order.model';
+import { OrderStatus, DEFAULT_MENU_THEME, RestaurantStatus, RestaurantStatusAction } from './config/constants';
+import { IRestaurantStatusChange } from './services/restaurant/interfaces/restaurant.interface';
 
 // ============================================================
 // Seed Script — Populates DB with test data for E2E testing
@@ -24,6 +25,7 @@ const SEED = {
   LOG_DISHES: (count: number) => `Seeded: ${count} Dishes`,
   LOG_TABLES: (count: number) => `Seeded: ${count} Tables`,
   LOG_ORDERS: (count: number) => `Seeded: ${count} Orders`,
+  LOG_ONBOARDING: (count: number) => `Seeded: ${count} restaurants in other onboarding states`,
   LOG_DONE: '✅ Seed complete!',
   LOG_IDS: 'IDs for testing:',
   LOG_FAILED: '❌ Seed failed:',
@@ -64,6 +66,11 @@ const seed = async () => {
       gpsCoordinates: { latitude: 19.0596, longitude: 72.8295 },
       gpsRadiusMeters: 500,
       isActive: true,
+      status: RestaurantStatus.ACTIVE,
+      statusHistory: [
+        { action: 'REGISTER', to: RestaurantStatus.PENDING_APPROVAL, changedBy: 'seeduser@test.com', changedAt: new Date() },
+        { action: RestaurantStatusAction.APPROVE, from: RestaurantStatus.PENDING_APPROVAL, to: RestaurantStatus.ACTIVE, changedBy: 'superadmin@test.com', changedAt: new Date() },
+      ],
     });
 
     // Link restaurant to user
@@ -143,7 +150,8 @@ const seed = async () => {
     console.log(SEED.LOG_TABLES(tables.length));
 
     // 7. Create sample orders (various statuses)
-    const sampleOrders = await OrderModel.insertMany([
+    const tableNumberById = new Map(tables.map((t) => [t._id.toString(), t.tableNumber]));
+    const sampleOrderInputs = [
       {
         restaurantId: restaurant._id,
         tableId: tables[0]._id,
@@ -210,8 +218,52 @@ const seed = async () => {
         totalAmount: 320 + 2 * 160,
         gpsCoordinates: { latitude: 19.0594, longitude: 72.8293 },
       },
-    ]);
+    ];
+    const sampleOrders = await OrderModel.insertMany(
+      sampleOrderInputs.map((o) => ({ ...o, tableNumber: tableNumberById.get(o.tableId.toString()) }))
+    );
     console.log(SEED.LOG_ORDERS(sampleOrders.length));
+
+    // 8. Extra restaurants in other onboarding states (for the super admin app)
+    const onboardingDemos = [
+      { owner: 'Ravi Kumar', email: 'ravi.owner@test.com', name: 'Dosa Junction', address: '12 MG Road, Bengaluru 560001', status: RestaurantStatus.PENDING_APPROVAL },
+      { owner: 'Anita Desai', email: 'anita.owner@test.com', name: 'Coastal Curry House', address: '8 Calangute Beach Road, Goa 403516', status: RestaurantStatus.PENDING_APPROVAL },
+      { owner: 'Vikram Singh', email: 'vikram.owner@test.com', name: 'Punjab Da Dhaba', address: '55 GT Karnal Road, Delhi 110033', status: RestaurantStatus.SUSPENDED, reason: 'Repeated customer complaints about fake orders' },
+      { owner: 'Meera Iyer', email: 'meera.owner@test.com', name: 'Test Kitchen 123', address: 'Unknown address, Chennai', status: RestaurantStatus.REJECTED, reason: 'Address could not be verified' },
+    ];
+    for (const [index, demo] of onboardingDemos.entries()) {
+      const owner = await UserModel.create({
+        googleId: `seed_onboarding_owner_${index}`,
+        email: demo.email,
+        name: demo.owner,
+        profilePicture: `https://ui-avatars.com/api/?name=${encodeURIComponent(demo.owner)}`,
+      });
+      const history: IRestaurantStatusChange[] = [
+        { action: 'REGISTER', to: RestaurantStatus.PENDING_APPROVAL, changedBy: demo.email, changedAt: new Date() },
+      ];
+      if (demo.status === RestaurantStatus.SUSPENDED) {
+        history.push(
+          { action: RestaurantStatusAction.APPROVE, from: RestaurantStatus.PENDING_APPROVAL, to: RestaurantStatus.ACTIVE, changedBy: 'superadmin@test.com', changedAt: new Date() },
+          { action: RestaurantStatusAction.SUSPEND, from: RestaurantStatus.ACTIVE, to: RestaurantStatus.SUSPENDED, reason: demo.reason, changedBy: 'superadmin@test.com', changedAt: new Date() }
+        );
+      } else if (demo.status === RestaurantStatus.REJECTED) {
+        history.push(
+          { action: RestaurantStatusAction.REJECT, from: RestaurantStatus.PENDING_APPROVAL, to: RestaurantStatus.REJECTED, reason: demo.reason, changedBy: 'superadmin@test.com', changedAt: new Date() }
+        );
+      }
+      const demoRestaurant = await RestaurantModel.create({
+        ownerId: owner._id,
+        name: demo.name,
+        address: demo.address,
+        gpsCoordinates: { latitude: 12.9716 + index * 0.5, longitude: 77.5946 + index * 0.5 },
+        status: demo.status,
+        statusReason: demo.reason,
+        statusHistory: history,
+      });
+      owner.restaurantId = demoRestaurant._id as mongoose.Types.ObjectId;
+      await owner.save();
+    }
+    console.log(SEED.LOG_ONBOARDING(onboardingDemos.length));
 
     // Print IDs for testing
     console.log(`\n${SEED.LOG_IDS}`);
@@ -220,9 +272,9 @@ const seed = async () => {
     console.log(`  Table 1 ID    : ${tables[0]._id}`);
     console.log(`  Table 2 ID    : ${tables[1]._id}`);
     console.log(`\n  Customer Menu URL:`);
-    console.log(`  http://localhost:5174?restaurant=${restaurant._id}&table=${tables[0]._id}`);
+    console.log(`  http://localhost:8080/menu/${restaurant._id}/${tables[0]._id}`);
     console.log(`\n  Kitchen Display URL:`);
-    console.log(`  http://localhost:5175?restaurant=${restaurant._id}`);
+    console.log(`  http://localhost:8080/kitchen/?restaurant=${restaurant._id}`);
 
     console.log(`\n${SEED.LOG_DONE}`);
     process.exit(0);

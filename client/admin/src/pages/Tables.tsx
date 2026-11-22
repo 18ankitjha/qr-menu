@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTables, addTable, addBulkTables, deleteTable, generateQr } from '../services/api';
-import { MESSAGES } from '../constants';
+import { API_ENDPOINTS, MESSAGES } from '../constants';
 import type { ITable } from '../types';
+import { getErrorMessage } from '../services/api';
+import { TableBillModal } from '../components/TableBillModal';
+import { TakeOrderModal } from '../components/TakeOrderModal';
+import { TableAlertsBanner } from '../components/TableAlertsBanner';
 import './FormPage.css';
 import './Tables.css';
 
@@ -12,7 +16,11 @@ import './Tables.css';
 
 const PAGE = {
   TITLE: 'Tables & QR Codes',
-  SUBTITLE: 'Manage tables and generate QR codes for customers.',
+  SUBTITLE: 'Add tables — a QR code is generated automatically for each one. Take orders and generate the bill per table.',
+  SUBTITLE_SETUP: 'Add your tables — a QR code is generated automatically for each one.',
+  SUBTITLE_STAFF: 'Take an order for a table, see its orders and generate the bill.',
+  BTN_ORDERS_BILL: 'Orders & Bill',
+  BTN_TAKE_ORDER: 'Take Order',
   ADD_TABLE: 'Add Table',
   BULK_ADD: 'Bulk Add',
   TABLE_NUMBER: 'Table Number',
@@ -20,17 +28,26 @@ const PAGE = {
   BULK_COUNT: 'Number of Tables',
   BTN_ADD: 'Add Table',
   BTN_BULK: 'Add Tables',
-  BTN_GENERATE_QR: 'Generate QR',
+  BTN_RETRY_QR: 'Retry QR',
+  QR_MISSING: 'QR not generated',
+  ADDING: 'Adding & generating QR…',
   BTN_DOWNLOAD_QR: 'Download QR',
   NO_TABLES: 'No tables yet. Add your first table.',
   NO_RESTAURANT: 'Register a restaurant first.',
   QR_GENERATED: 'QR code generated!',
-  SUCCESS_TABLE: 'Table added!',
-  SUCCESS_BULK: 'Tables added!',
+  QR_REGENERATED: (n: number) => `New QR for table #${n} — print and replace the old one.`,
+  BTN_REGENERATE_QR: 'Regenerate QR',
+  BTN_OPEN_MENU: 'Open menu',
+  CONFIRM_REGENERATE: (n: number) =>
+    `Regenerate the QR for table #${n}?\n\nThe old QR stops working immediately — diners scanning it will be asked to scan the new one. Use this if the QR was photographed/shared, or to upgrade an old QR.`,
+  LEGACY_QR: 'Old-style QR (links by table id). Regenerate to get a secure link.',
 } as const;
 
 const Tables = () => {
-  const { restaurant } = useAuth();
+  const { restaurant, isOwner, isSetupComplete, refreshSetup } = useAuth();
+  const [billTable, setBillTable] = useState<ITable | null>(null);
+  const [orderTable, setOrderTable] = useState<ITable | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const [tables, setTables] = useState<ITable[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -57,18 +74,19 @@ const Tables = () => {
     if (!restaurant) return;
     setLoading(true);
     try {
-      await addTable({
+      const { data } = await addTable({
         restaurantId: restaurant._id,
         tableNumber: parseInt(tableNum),
         label: tableLabel || undefined,
       });
       await fetchTables();
+      refreshSetup();
       setShowForm(false);
       setTableNum('');
       setTableLabel('');
-      setMessage(PAGE.SUCCESS_TABLE);
-    } catch {
-      setMessage(MESSAGES.ERROR_GENERIC);
+      setMessage(data.message ?? '');
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
     } finally {
       setLoading(false);
     }
@@ -79,32 +97,57 @@ const Tables = () => {
     if (!restaurant) return;
     setLoading(true);
     try {
-      await addBulkTables({ restaurantId: restaurant._id, count: parseInt(bulkCount) });
+      const { data } = await addBulkTables({ restaurantId: restaurant._id, count: parseInt(bulkCount) });
       await fetchTables();
+      refreshSetup();
       setShowForm(false);
       setBulkCount('');
-      setMessage(PAGE.SUCCESS_BULK);
-    } catch {
-      setMessage(MESSAGES.ERROR_GENERIC);
+      setMessage(data.message ?? '');
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGenerateQr = async (tableId: string) => {
+  /** QR codes are generated on create; this only retries one that failed (e.g. upload error). */
+  const handleRetryQr = async (tableId: string) => {
+    setRetryingId(tableId);
     try {
       await generateQr(tableId);
       await fetchTables();
       setMessage(PAGE.QR_GENERATED);
-    } catch {
-      setMessage(MESSAGES.ERROR_GENERIC);
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
+  /** Rotates the table's QR token: the printed QR stops working and a new one is issued. */
+  const handleRegenerateQr = async (table: ITable) => {
+    if (!confirm(PAGE.CONFIRM_REGENERATE(table.tableNumber))) return;
+    setRetryingId(table._id);
+    try {
+      await generateQr(table._id);
+      await fetchTables();
+      setMessage(PAGE.QR_REGENERATED(table.tableNumber));
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
+    } finally {
+      setRetryingId(null);
     }
   };
 
   const handleDeleteTable = async (tableId: string) => {
     if (!confirm(MESSAGES.CONFIRM_DELETE)) return;
-    await deleteTable(tableId);
-    await fetchTables();
+    try {
+      await deleteTable(tableId);
+      await fetchTables();
+      refreshSetup();
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
+    }
   };
 
   if (!restaurant) {
@@ -122,19 +165,28 @@ const Tables = () => {
     <div className="tables-page">
       <div className="page-header">
         <h1 className="page-title">{PAGE.TITLE}</h1>
-        <p className="page-subtitle">{PAGE.SUBTITLE}</p>
+        <p className="page-subtitle">{!isOwner ? PAGE.SUBTITLE_STAFF : isSetupComplete ? PAGE.SUBTITLE : PAGE.SUBTITLE_SETUP}</p>
       </div>
 
       {message && <div className="form-message">{message}</div>}
 
-      <div className="btn-row" style={{ marginBottom: 24 }}>
-        <button className="btn-primary" onClick={() => { setIsBulk(false); setShowForm(true); }}>
-          + {PAGE.ADD_TABLE}
-        </button>
-        <button className="btn-secondary" onClick={() => { setIsBulk(true); setShowForm(true); }}>
-          + {PAGE.BULK_ADD}
-        </button>
-      </div>
+      {isSetupComplete && (
+        <TableAlertsBanner
+          restaurantId={restaurant._id}
+          onOpenBill={(tableId) => setBillTable(tables.find((t) => t._id === tableId) ?? null)}
+        />
+      )}
+
+      {isOwner && (
+        <div className="btn-row" style={{ marginBottom: 24 }}>
+          <button className="btn-primary" onClick={() => { setIsBulk(false); setShowForm(true); }}>
+            + {PAGE.ADD_TABLE}
+          </button>
+          <button className="btn-secondary" onClick={() => { setIsBulk(true); setShowForm(true); }}>
+            + {PAGE.BULK_ADD}
+          </button>
+        </div>
+      )}
 
       {tables.length === 0 ? (
         <div className="empty-state">
@@ -153,16 +205,65 @@ const Tables = () => {
                   <a href={table.qrCodeUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
                     {PAGE.BTN_DOWNLOAD_QR}
                   </a>
+                  {table.qrToken ? (
+                    <a href={API_ENDPOINTS.CUSTOMER_MENU(table.qrToken)} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
+                      {PAGE.BTN_OPEN_MENU}
+                    </a>
+                  ) : (
+                    <span className="table-label">⚠️ {PAGE.LEGACY_QR}</span>
+                  )}
+                  {isOwner && (
+                    <button className="btn-secondary btn-sm" disabled={retryingId === table._id} onClick={() => handleRegenerateQr(table)}>
+                      {retryingId === table._id ? MESSAGES.LOADING : `🔄 ${PAGE.BTN_REGENERATE_QR}`}
+                    </button>
+                  )}
                 </div>
               ) : (
-                <button className="btn-secondary btn-sm" onClick={() => handleGenerateQr(table._id)}>
-                  {PAGE.BTN_GENERATE_QR}
-                </button>
+                <div className="qr-preview">
+                  <span className="table-label">⚠️ {PAGE.QR_MISSING}</span>
+                  {isOwner && (
+                    <button className="btn-secondary btn-sm" disabled={retryingId === table._id} onClick={() => handleRetryQr(table._id)}>
+                      {retryingId === table._id ? MESSAGES.LOADING : PAGE.BTN_RETRY_QR}
+                    </button>
+                  )}
+                </div>
               )}
-              <button className="btn-icon btn-icon--danger" onClick={() => handleDeleteTable(table._id)}>🗑️</button>
+              <div className="table-card-actions">
+                {isSetupComplete && (
+                  <>
+                    <button className="btn-primary btn-sm" onClick={() => setOrderTable(table)}>
+                      ➕ {PAGE.BTN_TAKE_ORDER}
+                    </button>
+                    <button className="btn-secondary btn-sm" onClick={() => setBillTable(table)}>
+                      🧾 {PAGE.BTN_ORDERS_BILL}
+                    </button>
+                  </>
+                )}
+                {isOwner && (
+                  <button className="btn-icon btn-icon--danger" onClick={() => handleDeleteTable(table._id)}>🗑️</button>
+                )}
+              </div>
             </div>
           ))}
         </div>
+      )}
+
+      {billTable && (
+        <TableBillModal
+          tableId={billTable._id}
+          tableNumber={billTable.tableNumber}
+          tableLabel={billTable.label}
+          onClose={() => setBillTable(null)}
+        />
+      )}
+
+      {orderTable && (
+        <TakeOrderModal
+          restaurantId={restaurant._id}
+          table={orderTable}
+          onClose={() => setOrderTable(null)}
+          onPlaced={(msg) => { setOrderTable(null); setMessage(msg); }}
+        />
       )}
 
       {/* Add Table Modal */}
@@ -188,7 +289,7 @@ const Tables = () => {
               </>
             )}
             <div className="btn-row">
-              <button className="btn-primary" disabled={loading}>{loading ? MESSAGES.LOADING : (isBulk ? PAGE.BTN_BULK : PAGE.BTN_ADD)}</button>
+              <button className="btn-primary" disabled={loading}>{loading ? PAGE.ADDING : (isBulk ? PAGE.BTN_BULK : PAGE.BTN_ADD)}</button>
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>{MESSAGES.CANCEL}</button>
             </div>
           </form>

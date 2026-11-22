@@ -8,8 +8,11 @@ import { MenuBuilder } from './pages/MenuBuilder';
 import { Tables } from './pages/Tables';
 import { Orders } from './pages/Orders';
 import { Settings } from './pages/Settings';
+import { Staff } from './pages/Staff';
+import { Bills } from './pages/Bills';
 import { AuthSuccess } from './pages/AuthSuccess';
 import { ROUTES, MESSAGES } from './constants';
+import type { SetupStepKey } from './types';
 
 // ============================================================
 // App — Root component with routing
@@ -29,9 +32,32 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+/** Pages only the restaurant owner may open; waiters are sent to Orders. */
+const OwnerRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isOwner } = useAuth();
+  if (!isOwner) {
+    return <Navigate to={ROUTES.ORDERS} replace />;
+  }
+  return <>{children}</>;
+};
+
+/**
+ * Until the owner finishes Quick Setup, only the setup steps that are unlocked can be opened
+ * (`step`), and every other page (`step` omitted) sends them back to the Dashboard.
+ */
+const SetupRoute = ({ step, children }: { step?: SetupStepKey; children: React.ReactNode }) => {
+  const { isSetupComplete, setup } = useAuth();
+  if (isSetupComplete) return <>{children}</>;
+  const status = step && setup?.steps.find((s) => s.step === step);
+  if (!status || !status.unlocked) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+  return <>{children}</>;
+};
+
 const App = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
         <Routes>
           <Route path={ROUTES.LOGIN} element={<Login />} />
@@ -43,12 +69,14 @@ const App = () => {
               </ProtectedRoute>
             }
           >
-            <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
-            <Route path={ROUTES.RESTAURANT} element={<Restaurant />} />
-            <Route path={ROUTES.MENU} element={<MenuBuilder />} />
-            <Route path={ROUTES.TABLES} element={<Tables />} />
-            <Route path={ROUTES.ORDERS} element={<Orders />} />
-            <Route path={ROUTES.SETTINGS} element={<Settings />} />
+            <Route path={ROUTES.DASHBOARD} element={<OwnerRoute><Dashboard /></OwnerRoute>} />
+            <Route path={ROUTES.RESTAURANT} element={<OwnerRoute><SetupRoute step="restaurant"><Restaurant /></SetupRoute></OwnerRoute>} />
+            <Route path={ROUTES.MENU} element={<OwnerRoute><SetupRoute step="menu"><MenuBuilder /></SetupRoute></OwnerRoute>} />
+            <Route path={ROUTES.TABLES} element={<SetupRoute step="tables"><Tables /></SetupRoute>} />
+            <Route path={ROUTES.ORDERS} element={<SetupRoute><Orders /></SetupRoute>} />
+            <Route path={ROUTES.BILLS} element={<SetupRoute><Bills /></SetupRoute>} />
+            <Route path={ROUTES.STAFF} element={<OwnerRoute><SetupRoute><Staff /></SetupRoute></OwnerRoute>} />
+            <Route path={ROUTES.SETTINGS} element={<OwnerRoute><SetupRoute step="theme"><Settings /></SetupRoute></OwnerRoute>} />
           </Route>
         </Routes>
       </AuthProvider>

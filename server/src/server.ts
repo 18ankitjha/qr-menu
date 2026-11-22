@@ -2,7 +2,8 @@ import http from 'http';
 import app from './app';
 import { env } from './config/env';
 import { connectDB } from './config/db';
-import { initializeSocket } from './socket/kitchen.socket';
+import { initializeSocket } from './services/realtime/socket/kitchen.socket';
+import { RestaurantDM } from './services/restaurant';
 import { logger } from './utils/logger';
 import { SERVER_MESSAGES } from './config/constants';
 
@@ -13,6 +14,12 @@ import { SERVER_MESSAGES } from './config/constants';
 const startServer = async (): Promise<void> => {
   try {
     await connectDB();
+
+    // Older restaurants were created before restaurant codes (used for staff login)
+    const backfilled = await RestaurantDM.backfillRestaurantCodes();
+    if (backfilled > 0) {
+      logger.info(`Assigned restaurant codes to ${backfilled} restaurant(s)`);
+    }
 
     const server = http.createServer(app);
 

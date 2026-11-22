@@ -8,7 +8,16 @@
     "dev:admin": "cd client/admin && npm run dev",
     "dev:menu": "cd client/menu && npm run dev",
     "dev:kitchen": "cd client/kitchen && npm run dev",
-    "dev": "npx concurrently \"npm run dev:server\" \"npm run dev:admin\" \"npm run dev:menu\"",
-    "install:all": "cd server && npm install && cd ../client/admin && npm install && cd ../menu && npm install && cd ../kitchen && npm install"
+    "dev:super-admin": "cd client/super-admin && npm run dev",
+    "dev:gateway": "cd gateway && npm start",
+    "dev": "npx concurrently -n api,admin,menu,kitchen,super-admin,gateway \"npm run dev:server\" \"npm run dev:admin\" \"npm run dev:menu\" \"npm run dev:kitchen\" \"npm run dev:super-admin\" \"npm run dev:gateway\"",
+    "install:all": "cd server && npm install && cd ../client/admin && npm install && cd ../menu && npm install && cd ../kitchen && npm install && cd ../super-admin && npm install && cd ../../gateway && npm install",
+    "build:server": "npm ci --include=dev --prefix server && npm run build --prefix server",
+    "build:admin": "npm ci --include=dev --prefix client/admin && npm run build --prefix client/admin",
+    "build:menu": "npm ci --include=dev --prefix client/menu && npm run build --prefix client/menu",
+    "build:kitchen": "npm ci --include=dev --prefix client/kitchen && npm run build --prefix client/kitchen",
+    "build:super-admin": "npm ci --include=dev --prefix client/super-admin && npm run build --prefix client/super-admin",
+    "build": "npm run build:server && npm run build:admin && npm run build:menu && npm run build:kitchen && npm run build:super-admin",
+    "start": "npm start --prefix server"
   }
 }

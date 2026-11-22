@@ -1,0 +1,209 @@
+/* ============================================================
+   Billing styles — table bill modal, bill breakdown, bills page
+   ============================================================ */
+
+.form-message--error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #dc2626;
+}
+
+.bill-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.bill-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 20px 0 8px;
+}
+
+.bill-muted {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.bill-generated {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bill-warning {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+/* ------- Orders list inside the modal ------- */
+
+.bill-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.bill-order-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.bill-order-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bill-order-id {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bill-order-items {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bill-order-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.bill-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.bill-chip--unpaid {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+/* ------- Breakdown ------- */
+
+.bill-breakdown {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.bill-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  color: var(--text-primary);
+}
+
+.bill-line--sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.bill-line--divider {
+  border-top: 1px dashed var(--border);
+  margin-top: 6px;
+  padding-top: 8px;
+}
+
+.bill-line--total {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 8px;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+/* ------- Bills page ------- */
+
+.bills-page {
+  max-width: 1000px;
+}
+
+.bills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bill-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bill-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bill-card-number {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.bill-card-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.bill-card-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.bill-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bill-pay-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+/* ------- Tables page additions ------- */
+
+.table-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}

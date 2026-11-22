@@ -1,14 +1,50 @@
+import { useState, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { MESSAGES, ROUTES } from '../constants';
+import { getErrorMessage } from '../services/api';
 import './Login.css';
 
 // ============================================================
-// Login Page — Google OAuth entry point
+// Login Page — Google OAuth (owner) + staff login (waiter)
 // ============================================================
 
+const STAFF_TEXT = {
+  DIVIDER: 'Waiter login',
+  WAITER_HINT: 'Use the restaurant code, username and PIN given by your restaurant owner.',
+  CODE: 'Restaurant code (6 digits)',
+  USERNAME: 'Username',
+  PIN: 'PIN',
+  BUTTON: 'Sign in as waiter',
+  SIGNING_IN: 'Signing in...',
+  ERROR: 'Login failed. Check the code, username and PIN.',
+};
+
 const Login = () => {
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading, login, staffLogin } = useAuth();
+  const [searchParams] = useSearchParams();
+  // ?code=123456 (link shared from the Staff page) prefills the restaurant code
+  const codeFromLink = /^\d{6}$/.test(searchParams.get('code') ?? '') ? searchParams.get('code')! : '';
+  const [form, setForm] = useState({ restaurantCode: codeFromLink, username: '', pin: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleStaffLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await staffLogin({
+        restaurantCode: form.restaurantCode.trim(),
+        username: form.username.trim().toLowerCase(),
+        pin: form.pin.trim(),
+      });
+    } catch (err) {
+      setError(getErrorMessage(err, STAFF_TEXT.ERROR));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (isLoading) {
     return <div className="login-loading">{MESSAGES.LOADING}</div>;
@@ -38,6 +74,46 @@ const Login = () => {
           </svg>
           {MESSAGES.LOGIN_BUTTON}
         </button>
+
+        <div className="login-divider"><span>{STAFF_TEXT.DIVIDER}</span></div>
+        <p className="login-subtitle">{STAFF_TEXT.WAITER_HINT}</p>
+        <form className="staff-login-form" onSubmit={handleStaffLogin}>
+          <input
+            className="staff-login-input"
+            placeholder={STAFF_TEXT.CODE}
+            inputMode="numeric"
+            pattern="\d{6}"
+            maxLength={6}
+            required
+            value={form.restaurantCode}
+            onChange={(e) => setForm((p) => ({ ...p, restaurantCode: e.target.value }))}
+          />
+          <input
+            className="staff-login-input"
+            placeholder={STAFF_TEXT.USERNAME}
+            autoComplete="username"
+            autoFocus={!!codeFromLink}
+            required
+            value={form.username}
+            onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
+          />
+          <input
+            className="staff-login-input"
+            placeholder={STAFF_TEXT.PIN}
+            type="password"
+            inputMode="numeric"
+            pattern="\d{4,6}"
+            maxLength={6}
+            autoComplete="current-password"
+            required
+            value={form.pin}
+            onChange={(e) => setForm((p) => ({ ...p, pin: e.target.value }))}
+          />
+          {error && <div className="staff-login-error">{error}</div>}
+          <button type="submit" className="btn-staff-login" disabled={submitting}>
+            {submitting ? STAFF_TEXT.SIGNING_IN : STAFF_TEXT.BUTTON}
+          </button>
+        </form>
       </div>
     </div>
   );

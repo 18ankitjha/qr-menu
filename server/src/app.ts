@@ -1,11 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { env } from './config/env';
+import { env, CLIENT_ORIGINS } from './config/env';
 import { errorMiddleware } from './middlewares/error.middleware';
 import { registerRoutes } from './routes';
 import { logger } from './utils/logger';
 import { ROUTE_PATHS, APP_SETTINGS, SERVER_MESSAGES } from './config/constants';
+import { serveWebApps } from './services/web-apps/serve-web-apps';
 
 // ============================================================
 // Express App Setup
@@ -13,13 +14,20 @@ import { ROUTE_PATHS, APP_SETTINGS, SERVER_MESSAGES } from './config/constants';
 
 const app = express();
 
+const isProduction = env.NODE_ENV === APP_SETTINGS.PRODUCTION;
+
+// Behind the hosting provider's HTTPS proxy (Render etc.)
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
+
 // ------- Global Middlewares -------
 
 app.use(
   cors({
     origin: env.NODE_ENV === APP_SETTINGS.DEVELOPMENT
       ? true  // allow all origins in dev
-      : [env.CLIENT_ADMIN_URL, env.CLIENT_MENU_URL, env.CLIENT_KITCHEN_URL],
+      : CLIENT_ORIGINS,
     credentials: true,
   })
 );
@@ -42,6 +50,11 @@ app.get(ROUTE_PATHS.HEALTH, (_req, res) => {
 
 // ------- API Routes -------
 registerRoutes(app);
+
+// ------- Front-end apps (production: one host for everything) -------
+if (isProduction) {
+  serveWebApps(app);
+}
 
 // ------- Global Error Handler (must be last) -------
 app.use(errorMiddleware);

@@ -2,13 +2,23 @@ import axios from 'axios';
 import { API_ENDPOINTS } from '../constants';
 import type {
   IApiResponse,
-  IUser,
+  IProfile,
   IRestaurant,
+  IBillingSettings,
   IMenu,
   ICategory,
   IDish,
   ITable,
   IOrder,
+  ITableOrders,
+  IStaff,
+  IBill,
+  IBillPreview,
+  BillStatus,
+  PaymentMode,
+  ISetupStatus,
+  IOrderingMenu,
+  IOpenTableSession,
 } from '../types';
 
 // ============================================================
@@ -24,7 +34,11 @@ const api = axios.create({
 // ============================================================
 
 const getProfile = () =>
-  api.get<IApiResponse<IUser>>(API_ENDPOINTS.AUTH.GET_PROFILE);
+  api.get<IApiResponse<IProfile>>(API_ENDPOINTS.AUTH.GET_PROFILE);
+
+/** Waiter login: 6-digit restaurant code + username + PIN. Sets the auth cookie. */
+const staffLogin = (data: { restaurantCode: string; username: string; pin: string }) =>
+  api.post<IApiResponse<unknown>>(API_ENDPOINTS.AUTH.STAFF_LOGIN, data);
 
 // const googleLogin = (idToken: string) =>
 //   api.post<IApiResponse<{ user: IUser; token: string; isNewUser: boolean }>>(
@@ -50,6 +64,9 @@ const updateRestaurant = (id: string, data: Partial<IRestaurant>) =>
 
 const setRestaurantGps = (id: string, data: { latitude: number; longitude: number; gpsRadiusMeters?: number }) =>
   api.put<IApiResponse<IRestaurant>>(API_ENDPOINTS.RESTAURANT.SET_GPS(id), data);
+
+const setBillingSettings = (id: string, data: IBillingSettings) =>
+  api.put<IApiResponse<IRestaurant>>(API_ENDPOINTS.RESTAURANT.SET_BILLING_SETTINGS(id), data);
 
 // ============================================================
 // Menu API
@@ -141,24 +158,106 @@ const getQr = (tableId: string) =>
 // Order API
 // ============================================================
 
-const getAllOrders = (restaurantId: string) =>
-  api.get<IApiResponse<IOrder[]>>(API_ENDPOINTS.ORDER.GET_ALL(restaurantId));
+const getAllOrders = (restaurantId: string, filters: { tableId?: string; status?: string } = {}) =>
+  api.get<IApiResponse<IOrder[]>>(API_ENDPOINTS.ORDER.GET_ALL(restaurantId), { params: filters });
+
+/** Waiter/owner takes an order for a table (no GPS check). */
+const placeOrderByStaff = (data: {
+  restaurantId: string;
+  tableId: string;
+  items: { dishId: string; quantity: number; notes?: string }[];
+  specialInstructions?: string;
+  customerName?: string;
+}) => api.post<IApiResponse<IOrder>>(API_ENDPOINTS.ORDER.PLACE_BY_STAFF, data);
+
+/** Active categories + available dishes, for taking an order. */
+const getOrderingMenu = (restaurantId: string, tableId: string) =>
+  api.get<IApiResponse<IOrderingMenu>>(API_ENDPOINTS.MENU.GET_ORDERING_MENU(restaurantId, tableId));
+
+// ============================================================
+// Table Session API (diners at tables — alerts for staff)
+// ============================================================
+
+const getOpenTableSessions = (restaurantId: string) =>
+  api.get<IApiResponse<IOpenTableSession[]>>(API_ENDPOINTS.TABLE_SESSION.GET_OPEN(restaurantId));
+
+const clearTableAlert = (sessionId: string, type: 'BILL' | 'WAITER') =>
+  api.patch<IApiResponse<IOpenTableSession>>(API_ENDPOINTS.TABLE_SESSION.CLEAR_ALERT(sessionId), { type });
+
+const closeTableSession = (sessionId: string) =>
+  api.post<IApiResponse<IOpenTableSession>>(API_ENDPOINTS.TABLE_SESSION.CLOSE(sessionId));
+
+// ============================================================
+// Setup API (owner Quick Setup)
+// ============================================================
+
+const getSetupStatus = (restaurantId: string) =>
+  api.get<IApiResponse<ISetupStatus>>(API_ENDPOINTS.SETUP.GET_STATUS(restaurantId));
+
+const getOrdersByTable = (tableId: string) =>
+  api.get<IApiResponse<ITableOrders>>(API_ENDPOINTS.ORDER.GET_BY_TABLE(tableId));
 
 const setOrderStatus = (orderId: string, status: string) =>
   api.patch<IApiResponse<IOrder>>(API_ENDPOINTS.ORDER.SET_STATUS(orderId), { status });
 
+/** Full new item list for an unbilled order (owner or waiter). */
+const updateOrderItems = (
+  orderId: string,
+  data: {
+    items: { dishId: string; quantity: number; notes?: string; addedBy?: string }[];
+    specialInstructions?: string;
+  }
+) => api.patch<IApiResponse<IOrder>>(API_ENDPOINTS.ORDER.UPDATE_ITEMS(orderId), data);
+
 // ============================================================
-// Invoice API
+// Billing API
 // ============================================================
 
-const generateInvoice = (orderId: string) =>
-  api.post<IApiResponse<{ url: string }>>(API_ENDPOINTS.INVOICE.GENERATE, { orderId });
+const previewTableBill = (tableId: string) =>
+  api.get<IApiResponse<IBillPreview>>(API_ENDPOINTS.BILLING.PREVIEW_TABLE_BILL(tableId));
 
-const getInvoicePdf = (orderId: string) =>
-  API_ENDPOINTS.INVOICE.GET_PDF(orderId);
+const generateTableBill = (tableId: string) =>
+  api.post<IApiResponse<IBill>>(API_ENDPOINTS.BILLING.GENERATE_TABLE_BILL, { tableId });
 
-const getTableInvoicePdf = (tableId: string) =>
-  API_ENDPOINTS.INVOICE.GET_TABLE_PDF(tableId);
+const getBills = (restaurantId: string, filters: { status?: BillStatus; tableId?: string } = {}) =>
+  api.get<IApiResponse<IBill[]>>(API_ENDPOINTS.BILLING.GET_ALL(restaurantId), { params: filters });
+
+const markBillPaid = (billId: string, paymentMode: PaymentMode) =>
+  api.patch<IApiResponse<IBill>>(API_ENDPOINTS.BILLING.MARK_PAID(billId), { paymentMode });
+
+/** PDF URLs are opened directly in a new tab; the auth cookie is sent (same origin). */
+const getBillPdfUrl = (billId: string) => API_ENDPOINTS.BILLING.GET_PDF(billId);
+
+const getOrderPdfUrl = (orderId: string) => API_ENDPOINTS.BILLING.GET_ORDER_PDF(orderId);
+
+// ============================================================
+// Staff API (owner only)
+// ============================================================
+
+const addStaff = (data: { restaurantId: string; name: string; username: string; pin?: string }) =>
+  api.post<IApiResponse<{ staff: IStaff; pin: string }>>(API_ENDPOINTS.STAFF.ADD, data);
+
+const getStaff = (restaurantId: string) =>
+  api.get<IApiResponse<IStaff[]>>(API_ENDPOINTS.STAFF.GET_ALL(restaurantId));
+
+const resetStaffPin = (id: string, pin?: string) =>
+  api.post<IApiResponse<{ staff: IStaff; pin: string }>>(API_ENDPOINTS.STAFF.RESET_PIN(id), pin ? { pin } : {});
+
+/** Owner only. 409 for older waiters whose PIN must be reset before it can be viewed. */
+const getStaffPin = (id: string) =>
+  api.get<IApiResponse<{ pin: string }>>(API_ENDPOINTS.STAFF.GET_PIN(id));
+
+const setStaffActive = (id: string, isActive: boolean) =>
+  api.patch<IApiResponse<IStaff>>(API_ENDPOINTS.STAFF.SET_ACTIVE(id), { isActive });
+
+const removeStaff = (id: string) =>
+  api.delete<IApiResponse<null>>(API_ENDPOINTS.STAFF.REMOVE(id));
+
+/** Pulls the server's error message out of an axios error. */
+const getErrorMessage = (err: unknown, fallback: string) => {
+  const data = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+  return data?.message || data?.error || fallback;
+};
 
 // ============================================================
 // Upload API
@@ -181,11 +280,13 @@ const uploadImage = (file: File, folder: string) => {
 export {
   api,
   getProfile,
+  staffLogin,
   logout,
   registerRestaurant,
   getRestaurant,
   updateRestaurant,
   setRestaurantGps,
+  setBillingSettings,
   createMenu,
   getMenu,
   updateMenu,
@@ -209,9 +310,27 @@ export {
   generateQr,
   getQr,
   getAllOrders,
+  placeOrderByStaff,
+  getOrderingMenu,
+  getOpenTableSessions,
+  clearTableAlert,
+  closeTableSession,
+  getSetupStatus,
+  getOrdersByTable,
   setOrderStatus,
-  generateInvoice,
-  getInvoicePdf,
-  getTableInvoicePdf,
+  updateOrderItems,
+  previewTableBill,
+  generateTableBill,
+  getBills,
+  markBillPaid,
+  getBillPdfUrl,
+  getOrderPdfUrl,
+  addStaff,
+  getStaff,
+  resetStaffPin,
+  getStaffPin,
+  setStaffActive,
+  removeStaff,
+  getErrorMessage,
   uploadImage,
 };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { registerRestaurant, updateRestaurant, setRestaurantGps } from '../services/api';
+import { registerRestaurant, updateRestaurant, setRestaurantGps, setBillingSettings, getErrorMessage } from '../services/api';
 import { MESSAGES } from '../constants';
 import './FormPage.css';
 
@@ -28,16 +28,24 @@ const PAGE_CONSTANTS = {
   },
   GPS_SECTION: 'GPS Anti-Spam Settings',
   GPS_DESC: 'Set the location and radius within which customers can place orders.',
-  SUCCESS_REGISTER: 'Restaurant registered!',
+  SUCCESS_REGISTER: 'Restaurant registered! It is now waiting for approval from the QR Menu team.',
   SUCCESS_UPDATE: 'Restaurant updated!',
   SUCCESS_GPS: 'GPS settings updated!',
   BTN_REGISTER: 'Register Restaurant',
   BTN_UPDATE: 'Update Details',
   BTN_UPDATE_GPS: 'Update GPS',
+  STAFF_CODE_SECTION: 'Staff Login Code',
+  STAFF_CODE_DESC: 'Waiters sign in on the admin login page with this code + their username and PIN (add them under Staff).',
+  BILLING_SECTION: 'Billing Settings',
+  BILLING_DESC: 'Applied to every table bill. Service charge is on the subtotal; GST is on subtotal + service charge.',
+  GST: 'GST (%)',
+  SERVICE_CHARGE: 'Service Charge (%)',
+  BTN_UPDATE_BILLING: 'Save Billing Settings',
+  SUCCESS_BILLING: 'Billing settings updated!',
 } as const;
 
 const Restaurant = () => {
-  const { restaurant, setRestaurant, user, refreshProfile } = useAuth();
+  const { restaurant, setRestaurant, refreshProfile } = useAuth();
 
   const [formData, setFormData] = useState({
     name: restaurant?.name || '',
@@ -48,6 +56,11 @@ const Restaurant = () => {
     latitude: restaurant?.gpsCoordinates?.latitude?.toString() || '',
     longitude: restaurant?.gpsCoordinates?.longitude?.toString() || '',
     gpsRadiusMeters: restaurant?.gpsRadiusMeters?.toString() || '200',
+  });
+
+  const [billingData, setBillingData] = useState({
+    gstPercent: restaurant?.billingSettings?.gstPercent?.toString() ?? '0',
+    serviceChargePercent: restaurant?.billingSettings?.serviceChargePercent?.toString() ?? '0',
   });
 
   const [loading, setLoading] = useState(false);
@@ -112,6 +125,25 @@ const Restaurant = () => {
       setMessage(PAGE_CONSTANTS.SUCCESS_GPS);
     } catch {
       setMessage(MESSAGES.ERROR_GENERIC);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBillingUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restaurant) return;
+    setLoading(true);
+    setMessage('');
+    try {
+      const { data } = await setBillingSettings(restaurant._id, {
+        gstPercent: parseFloat(billingData.gstPercent) || 0,
+        serviceChargePercent: parseFloat(billingData.serviceChargePercent) || 0,
+      });
+      setRestaurant(data.data);
+      setMessage(PAGE_CONSTANTS.SUCCESS_BILLING);
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
     } finally {
       setLoading(false);
     }
@@ -291,6 +323,52 @@ const Restaurant = () => {
 
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? MESSAGES.LOADING : PAGE_CONSTANTS.BTN_UPDATE_GPS}
+          </button>
+        </form>
+      )}
+
+      {restaurant && (
+        <div className="form-card">
+          <h2 className="card-title">{PAGE_CONSTANTS.STAFF_CODE_SECTION}</h2>
+          <p className="card-subtitle">{PAGE_CONSTANTS.STAFF_CODE_DESC}</p>
+          <div className="page-title" style={{ letterSpacing: 6 }}>{restaurant.restaurantCode ?? '—'}</div>
+        </div>
+      )}
+
+      {restaurant && (
+        <form onSubmit={handleBillingUpdate} className="form-card">
+          <h2 className="card-title">{PAGE_CONSTANTS.BILLING_SECTION}</h2>
+          <p className="card-subtitle">{PAGE_CONSTANTS.BILLING_DESC}</p>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">{PAGE_CONSTANTS.GST}</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="28"
+                className="form-input"
+                value={billingData.gstPercent}
+                onChange={(e) => setBillingData((p) => ({ ...p, gstPercent: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">{PAGE_CONSTANTS.SERVICE_CHARGE}</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="20"
+                className="form-input"
+                value={billingData.serviceChargePercent}
+                onChange={(e) => setBillingData((p) => ({ ...p, serviceChargePercent: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? MESSAGES.LOADING : PAGE_CONSTANTS.BTN_UPDATE_BILLING}
           </button>
         </form>
       )}

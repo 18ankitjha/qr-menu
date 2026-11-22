@@ -35,6 +35,7 @@ const PAGE = {
   ADD_CATEGORY: 'Add Category',
   CATEGORY_NAME: 'Category Name',
   CATEGORY_DESC: 'Description (optional)',
+  CATEGORY_IMAGE: 'Category image (optional — shown on the customer menu)',
   DISH_SECTION: 'Dishes',
   ADD_DISH: 'Add Dish',
   DISH_FIELDS: {
@@ -45,7 +46,20 @@ const PAGE = {
     TAGS: 'Tags (comma-separated)',
     IS_VEG: 'Vegetarian',
     IMAGE: 'Upload Image',
+    DETAILS: 'Item Details (shown to customers)',
+    SPICE_LEVEL: 'Spice Level',
+    SERVING_SIZE: 'Serving Size',
+    CALORIES: 'Calories (kcal)',
+    INGREDIENTS: 'Ingredients',
+    ALLERGENS: 'Allergens (comma-separated)',
   },
+  SPICE_LEVELS: [
+    { value: '', label: 'Not specified' },
+    { value: 'NONE', label: 'Not spicy' },
+    { value: 'MILD', label: '🌶️ Mild' },
+    { value: 'MEDIUM', label: '🌶️🌶️ Medium' },
+    { value: 'HOT', label: '🌶️🌶️🌶️ Hot' },
+  ],
   VEG_BADGE: 'VEG',
   NONVEG_BADGE: 'NON-VEG',
   AVAILABLE: 'Available',
@@ -59,7 +73,7 @@ const PAGE = {
 } ;
 
 const MenuBuilder = () => {
-  const { restaurant, menu, setMenu } = useAuth();
+  const { restaurant, menu, setMenu, refreshSetup } = useAuth();
 
   const [categories, setCategories] = useState<ICategory[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
@@ -74,7 +88,7 @@ const MenuBuilder = () => {
   // Category form state
   const [showCatForm, setShowCatForm] = useState(false);
   const [editingCat, setEditingCat] = useState<ICategory | null>(null);
-  const [catForm, setCatForm] = useState({ name: '', description: '' });
+  const [catForm, setCatForm] = useState({ name: '', description: '', imageUrl: '' });
 
   // Dish form state
   const [showDishForm, setShowDishForm] = useState(false);
@@ -88,6 +102,11 @@ const MenuBuilder = () => {
     tags: '',
     isVeg: true,
     imageUrl: '',
+    spiceLevel: '',
+    servingSize: '',
+    calories: '',
+    ingredients: '',
+    allergens: '',
   });
 
   const fetchCategories = useCallback(async () => {
@@ -123,6 +142,7 @@ const MenuBuilder = () => {
     try {
       const { data } = await createMenu({ restaurantId: restaurant._id, name: menuName });
       setMenu(data.data);
+      refreshSetup();
       setMessage(PAGE.SUCCESS_MENU);
     } catch {
       setMessage(MESSAGES.ERROR_GENERIC);
@@ -135,23 +155,36 @@ const MenuBuilder = () => {
   const openCatForm = (cat?: ICategory) => {
     if (cat) {
       setEditingCat(cat);
-      setCatForm({ name: cat.name, description: cat.description || '' });
+      setCatForm({ name: cat.name, description: cat.description || '', imageUrl: cat.imageUrl || '' });
     } else {
       setEditingCat(null);
-      setCatForm({ name: '', description: '' });
+      setCatForm({ name: '', description: '', imageUrl: '' });
     }
     setShowCatForm(true);
+  };
+
+  const handleCategoryImageUpload = async (file: File) => {
+    setImageUploading(true);
+    try {
+      const { data } = await uploadImage(file, 'categories');
+      setCatForm((prev) => ({ ...prev, imageUrl: data.data.url }));
+    } catch {
+      setMessage('Image upload failed. Please try again.');
+    } finally {
+      setImageUploading(false);
+    }
   };
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!menu) return;
     setLoading(true);
+    const payload = { ...catForm, imageUrl: catForm.imageUrl || undefined };
     try {
       if (editingCat) {
-        await updateCategory(editingCat._id, catForm);
+        await updateCategory(editingCat._id, payload);
       } else {
-        await addCategory({ ...catForm, menuId: menu._id });
+        await addCategory({ ...payload, menuId: menu._id });
       }
       await fetchCategories();
       setShowCatForm(false);
@@ -180,7 +213,10 @@ const MenuBuilder = () => {
 
   // --- Dish CRUD ---
   const resetDishForm = () => {
-    setDishForm({ name: '', description: '', price: '', preparationTime: '', tags: '', isVeg: true, imageUrl: '' });
+    setDishForm({
+      name: '', description: '', price: '', preparationTime: '', tags: '', isVeg: true, imageUrl: '',
+      spiceLevel: '', servingSize: '', calories: '', ingredients: '', allergens: '',
+    });
   };
 
   const openDishForm = (dish?: IDish) => {
@@ -196,6 +232,11 @@ const MenuBuilder = () => {
         tags: Array.isArray(dish.tags) ? dish.tags.join(', ') : '',
         isVeg: typeof dish.isVeg === 'boolean' ? dish.isVeg : true,
         imageUrl: dish.imageUrl ?? '',
+        spiceLevel: dish.spiceLevel ?? '',
+        servingSize: dish.servingSize ?? '',
+        calories: dish.calories != null ? String(dish.calories) : '',
+        ingredients: dish.ingredients ?? '',
+        allergens: Array.isArray(dish.allergens) ? dish.allergens.join(', ') : '',
       });
     } else {
       setEditingDish(null);
@@ -224,6 +265,7 @@ const MenuBuilder = () => {
       const parsedTags = dishForm.tags
         ? dishForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
         : undefined;
+      const parsedAllergens = dishForm.allergens.split(',').map((t) => t.trim()).filter(Boolean);
 
       const payload = {
         name: dishForm.name,
@@ -233,6 +275,11 @@ const MenuBuilder = () => {
         tags: parsedTags && parsedTags.length > 0 ? parsedTags : undefined,
         isVeg: dishForm.isVeg,
         imageUrl: dishForm.imageUrl || undefined,
+        spiceLevel: (dishForm.spiceLevel || undefined) as IDish['spiceLevel'],
+        servingSize: dishForm.servingSize || undefined,
+        calories: dishForm.calories ? parseInt(dishForm.calories) : undefined,
+        ingredients: dishForm.ingredients || undefined,
+        allergens: parsedAllergens,
         categoryId: selectedCatId,
         menuId: menu._id,
       };
@@ -241,6 +288,7 @@ const MenuBuilder = () => {
         await updateDish(editingDish._id, payload);
       } else {
         await addDish(payload);
+        refreshSetup();
       }
       await fetchDishes(selectedCatId);
       setShowDishForm(false);
@@ -277,6 +325,7 @@ const MenuBuilder = () => {
   const handleDeleteDish = async (dishId: string) => {
     if (!confirm(MESSAGES.CONFIRM_DELETE)) return;
     await deleteDish(dishId);
+    refreshSetup();
     if (selectedCatId) await fetchDishes(selectedCatId);
   };
 
@@ -403,7 +452,13 @@ const MenuBuilder = () => {
                     <div className="dish-meta">
                       <span className="dish-price">₹{dish.price}</span>
                       {dish.preparationTime && <span className="dish-time">⏱️ {dish.preparationTime}m</span>}
+                      {dish.spiceLevel && dish.spiceLevel !== 'NONE' && <span className="dish-time">🌶️ {dish.spiceLevel.toLowerCase()}</span>}
+                      {dish.servingSize && <span className="dish-time">🍽️ {dish.servingSize}</span>}
+                      {dish.calories != null && <span className="dish-time">🔥 {dish.calories} kcal</span>}
                     </div>
+                    {dish.allergens && dish.allergens.length > 0 && (
+                      <div className="dish-description">⚠️ Contains: {dish.allergens.join(', ')}</div>
+                    )}
                     {dish.tags && dish.tags.length > 0 && (
                       <div className="dish-tags">
                         {dish.tags.map((tag) => (
@@ -442,8 +497,23 @@ const MenuBuilder = () => {
               <label className="form-label">{PAGE.CATEGORY_DESC}</label>
               <textarea className="form-textarea" value={catForm.description} onChange={(e) => setCatForm((p) => ({ ...p, description: e.target.value }))} />
             </div>
+            <div className="form-group">
+              <label className="form-label">{PAGE.CATEGORY_IMAGE}</label>
+              <input
+                type="file"
+                accept="image/*"
+                className="form-input"
+                disabled={imageUploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleCategoryImageUpload(file);
+                }}
+              />
+              {imageUploading && <p className="upload-status">Uploading image...</p>}
+              {catForm.imageUrl && !imageUploading && <img src={catForm.imageUrl} alt="Preview" className="image-preview" />}
+            </div>
             <div className="btn-row">
-              <button className="btn-primary" disabled={loading}>{loading ? MESSAGES.LOADING : MESSAGES.SAVE}</button>
+              <button className="btn-primary" disabled={loading || imageUploading}>{loading ? MESSAGES.LOADING : MESSAGES.SAVE}</button>
               <button type="button" className="btn-secondary" onClick={() => setShowCatForm(false)}>{MESSAGES.CANCEL}</button>
             </div>
           </form>
@@ -488,6 +558,33 @@ const MenuBuilder = () => {
                 <label className="form-label">{PAGE.DISH_FIELDS.TAGS}</label>
                 <input className="form-input" value={dishForm.tags} onChange={(e) => setDishForm((p) => ({ ...p, tags: e.target.value }))} placeholder="spicy, bestseller" />
               </div>
+            </div>
+            <h3 className="form-label" style={{ marginTop: 8 }}>{PAGE.DISH_FIELDS.DETAILS}</h3>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{PAGE.DISH_FIELDS.SPICE_LEVEL}</label>
+                <select className="form-input" value={dishForm.spiceLevel} onChange={(e) => setDishForm((p) => ({ ...p, spiceLevel: e.target.value }))}>
+                  {PAGE.SPICE_LEVELS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{PAGE.DISH_FIELDS.SERVING_SIZE}</label>
+                <input className="form-input" maxLength={50} value={dishForm.servingSize} onChange={(e) => setDishForm((p) => ({ ...p, servingSize: e.target.value }))} placeholder="e.g. 6 pcs, 250 g, serves 2" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">{PAGE.DISH_FIELDS.CALORIES}</label>
+                <input type="number" min="0" max="5000" className="form-input" value={dishForm.calories} onChange={(e) => setDishForm((p) => ({ ...p, calories: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">{PAGE.DISH_FIELDS.ALLERGENS}</label>
+                <input className="form-input" value={dishForm.allergens} onChange={(e) => setDishForm((p) => ({ ...p, allergens: e.target.value }))} placeholder="dairy, nuts, gluten" />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">{PAGE.DISH_FIELDS.INGREDIENTS}</label>
+              <textarea className="form-textarea" maxLength={500} value={dishForm.ingredients} onChange={(e) => setDishForm((p) => ({ ...p, ingredients: e.target.value }))} placeholder="Paneer, yogurt, ginger, garlic, spices" />
             </div>
             <div className="form-group">
               <label className="form-label">{PAGE.DISH_FIELDS.IS_VEG}</label>

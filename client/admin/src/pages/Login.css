@@ -110,3 +110,62 @@
 .google-icon {
   flex-shrink: 0;
 }
+
+/* ---------- Staff (waiter) login ---------- */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.staff-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.staff-login-input {
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.staff-login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.staff-login-error {
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.btn-staff-login {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-staff-login:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

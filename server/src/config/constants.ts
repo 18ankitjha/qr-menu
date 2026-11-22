@@ -40,6 +40,86 @@ export enum MenuLayout {
   LIST = 'list',
 }
 
+/**
+ * Restaurant onboarding lifecycle, controlled by the super admin.
+ * Restaurants created before this field existed have no status and are treated as ACTIVE.
+ */
+export enum RestaurantStatus {
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  REJECTED = 'REJECTED',
+}
+
+export const LEGACY_RESTAURANT_STATUS = RestaurantStatus.ACTIVE;
+
+export enum RestaurantStatusAction {
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+  SUSPEND = 'SUSPEND',
+  REACTIVATE = 'REACTIVATE',
+}
+
+/** Which action is allowed from which status, and the status it leads to. */
+export const RESTAURANT_STATUS_TRANSITIONS: Record<
+  RestaurantStatusAction,
+  { from: RestaurantStatus[]; to: RestaurantStatus; reasonRequired: boolean }
+> = {
+  [RestaurantStatusAction.APPROVE]: {
+    from: [RestaurantStatus.PENDING_APPROVAL, RestaurantStatus.REJECTED],
+    to: RestaurantStatus.ACTIVE,
+    reasonRequired: false,
+  },
+  [RestaurantStatusAction.REJECT]: {
+    from: [RestaurantStatus.PENDING_APPROVAL],
+    to: RestaurantStatus.REJECTED,
+    reasonRequired: true,
+  },
+  [RestaurantStatusAction.SUSPEND]: {
+    from: [RestaurantStatus.ACTIVE],
+    to: RestaurantStatus.SUSPENDED,
+    reasonRequired: true,
+  },
+  [RestaurantStatusAction.REACTIVATE]: {
+    from: [RestaurantStatus.SUSPENDED],
+    to: RestaurantStatus.ACTIVE,
+    reasonRequired: false,
+  },
+};
+
+export const PAGINATION_DEFAULTS = {
+  PAGE: 1,
+  LIMIT: 20,
+  MAX_LIMIT: 100,
+};
+
+/** Who is calling: a Google-authenticated user (owner / super admin) or restaurant staff (waiter). */
+export enum AuthKind {
+  USER = 'USER',
+  STAFF = 'STAFF',
+  /** Diner signed in with Google on the customer menu — never allowed on restaurant/admin APIs. */
+  CUSTOMER = 'CUSTOMER',
+}
+
+/** Role of the caller inside one restaurant. */
+export enum RestaurantRole {
+  OWNER = 'OWNER',
+  WAITER = 'WAITER',
+}
+
+/** Orders in these statuses are never billed. */
+export const NON_BILLABLE_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.CANCELLED,
+  OrderStatus.CANNOT_DELIVER,
+];
+
+/** Front-end apps that may start the Google OAuth flow (used to pick the post-login redirect). */
+export enum ClientApp {
+  ADMIN = 'admin',
+  SUPER_ADMIN = 'super-admin',
+  MENU = 'menu',
+}
+
 export const DEFAULT_MENU_THEME = {
   primaryColor: '#FF6B35',
   secondaryColor: '#004E89',
@@ -61,6 +141,13 @@ export const SOCKET_EVENTS = {
   ORDER_STATUS_UPDATED: 'order_status_updated',
   JOIN_RESTAURANT_ROOM: 'join_restaurant_room',
   LEAVE_RESTAURANT_ROOM: 'leave_restaurant_room',
+  /** Customer menu: watch one table (payload: tableId). */
+  JOIN_TABLE_ROOM: 'join_table_room',
+  LEAVE_TABLE_ROOM: 'leave_table_room',
+  /** To the table room: something changed (cart, orders, bill) — refetch. Carries no data. */
+  TABLE_SESSION_UPDATED: 'table_session_updated',
+  /** To the restaurant room: a table requested the bill / called a waiter. */
+  TABLE_ALERT: 'table_alert',
 } ;
 
 export const ERROR_MESSAGES = {
@@ -84,20 +171,27 @@ export const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'An internal server error occurred.',
   INVALID_IMAGE_TYPE: 'Invalid image type. Allowed: JPEG, PNG, WebP.',
   IMAGE_TOO_LARGE: 'Image size exceeds the maximum allowed size.',
+  SUPER_ADMIN_ONLY: 'Only platform super admins can access this resource.',
+  RESTAURANT_NOT_OPERATIONAL: 'This restaurant is not accepting orders right now.',
+  INVALID_RESTAURANT_STATUS_TRANSITION: (action: string, status: string) =>
+    `Cannot ${action.toLowerCase()} a restaurant that is ${status}.`,
+  STATUS_REASON_REQUIRED: 'A reason is required for this action.',
+  TABLE_RESTAURANT_MISMATCH: 'Table does not belong to this restaurant.',
 } ;
 
+/** One prefix per service: /api/v1/<service>/... */
 export const ROUTE_PATHS = {
   AUTH: '/auth',
   RESTAURANT: '/restaurant',
   MENU: '/menu',
-  CATEGORY: '/category',
-  DISH: '/dish',
   TABLE: '/table',
-  QR: '/qr',
   ORDER: '/order',
+  BILLING: '/billing',
+  STAFF: '/staff',
+  SETUP: '/setup',
   UPLOAD: '/upload',
-  INVOICE: '/invoice',
-  PUBLIC: '/public',
+  SUPER_ADMIN: '/super-admin',
+  TABLE_SESSION: '/table-session',
   HEALTH: '/health',
 } ;
 
@@ -116,6 +210,7 @@ export const SERVER_MESSAGES = {
 export const APP_SETTINGS = {
   BODY_LIMIT: '10mb',
   DEVELOPMENT: 'development',
+  PRODUCTION: 'production',
 } ;
 
 export const SUCCESS_MESSAGES = {
@@ -143,4 +238,5 @@ export const SUCCESS_MESSAGES = {
   INVOICE_GENERATED: 'Invoice generated successfully.',
   IMAGE_UPLOADED: 'Image uploaded successfully.',
   LOGOUT_SUCCESS: 'Logged out successfully.',
+  RESTAURANT_STATUS_UPDATED: (status: string) => `Restaurant is now ${status}.`,
 } ;

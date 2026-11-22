@@ -2,8 +2,8 @@
 // Kitchen Display Constants
 // ============================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'; // same origin as the app (gateway / reverse proxy)
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
 
 const API_ENDPOINTS = {
   KITCHEN_ORDERS: (restaurantId: string) =>

@@ -1,0 +1,13 @@
+{
+  "name": "qr-menu-dev-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local single-host gateway: routes /admin, /super-admin, /kitchen, /menu and /api to the dev servers",
+  "type": "module",
+  "scripts": {
+    "start": "node dev-gateway.mjs"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}

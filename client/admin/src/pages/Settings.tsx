@@ -36,7 +36,7 @@ interface ICategoryWithDishes extends ICategory {
 }
 
 const Settings = () => {
-  const { menu, restaurant, setMenu, setRestaurant } = useAuth();
+  const { menu, restaurant, setMenu, setRestaurant, refreshSetup } = useAuth();
 
   const [theme, setTheme] = useState<IMenuTheme>(
     menu?.theme || {
@@ -85,6 +85,7 @@ const Settings = () => {
     try {
       const { data } = await setMenuTheme(menu._id, theme);
       setMenu(data.data);
+      refreshSetup();
       setMessage(PAGE.SUCCESS);
     } catch {
       setMessage(MESSAGES.ERROR_GENERIC);

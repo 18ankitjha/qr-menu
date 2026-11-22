@@ -1,0 +1,73 @@
+/* ============================================================
+   Setup Step Banner
+   ============================================================ */
+
+.setup-step-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 107, 53, 0.35);
+  background: rgba(255, 107, 53, 0.06);
+}
+
+.setup-step-banner--done {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.setup-step-banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setup-step-banner-count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.setup-step-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.setup-step-banner-state {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.setup-step-banner-state--done {
+  background: #10b981;
+  color: #fff;
+}
+
+.setup-step-banner-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.setup-step-banner-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.setup-step-banner-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

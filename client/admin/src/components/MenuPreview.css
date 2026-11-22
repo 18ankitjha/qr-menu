@@ -148,7 +148,8 @@
   color: var(--mp-primary, #FF6B35);
 }
 
-.mp-cat-tab--active {
+.mp-cat-tab--active,
+.mp-cat-tab--active:hover {
   background: var(--mp-primary, #FF6B35);
   color: #fff;
   border-color: var(--mp-primary, #FF6B35);

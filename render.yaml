@@ -1,0 +1,36 @@
+# Render Blueprint — the whole system as ONE web service:
+#   API + Socket.IO + the four built front-ends (/admin, /menu, /kitchen, /super-admin).
+# Render → New → Blueprint → pick this repo. Fill in the "sync: false" values when asked.
+# App URLs, QR links and the Google callback default to Render's own URL (RENDER_EXTERNAL_URL),
+# so they don't need to be set here. Set PUBLIC_URL only if you add a custom domain.
+services:
+  - type: web
+    name: qr-menu
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGODB_URI
+        sync: false
+      # Use the same value as your local .env — PINs are encrypted with it (unless PIN_ENCRYPTION_KEY is set)
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SUPER_ADMIN_EMAILS
+        sync: false
