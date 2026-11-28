@@ -56,6 +56,8 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
   const [active, setActive] = useState('');
   const toolbarRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLElement>(null);
+  /** A tapped tab stays highlighted until the diner scrolls themselves (the page may not reach that section). */
+  const pinnedRef = useRef(false);
   const query = search.trim().toLowerCase();
 
   // dishId → { mine, others, who } from the live cart
@@ -87,8 +89,11 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
     let frame = 0;
     const update = () => {
       frame = 0;
+      if (pinnedRef.current) return;
       const line = (toolbarRef.current?.getBoundingClientRect().bottom ?? 0) + 12;
-      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      // Scrolled to the very end: the last sections can't reach the top, so the last one counts as read
+      const atBottom =
+        window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
       let current = visible[0]?._id ?? '';
       for (const cat of visible) {
         const top = document.getElementById(sectionId(cat._id))?.getBoundingClientRect().top;
@@ -99,10 +104,19 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
     };
+    const onUserScroll = () => {
+      pinnedRef.current = false;
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('wheel', onUserScroll, { passive: true });
+    window.addEventListener('touchmove', onUserScroll, { passive: true });
+    window.addEventListener('keydown', onUserScroll);
     return () => {
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('wheel', onUserScroll);
+      window.removeEventListener('touchmove', onUserScroll);
+      window.removeEventListener('keydown', onUserScroll);
       cancelAnimationFrame(frame);
     };
   }, [visible]);
@@ -126,6 +140,8 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
     });
 
   const jumpTo = (id: string) => {
+    pinnedRef.current = true;
+    setActive(id);
     setCollapsed((prev) => {
       if (!prev.has(id)) return prev;
       const next = new Set(prev);
