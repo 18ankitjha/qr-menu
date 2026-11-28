@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAllOrders, getBills, setOrderStatus, getOrderPdfUrl, getBillPdfUrl, getErrorMessage } from '../services/api';
-import { ORDER_STATUS, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, MESSAGES } from '../constants';
+import { ORDER_STATUS, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, ORDER_STATUSES_IN_USE, MESSAGES } from '../constants';
 import type { IBill, IOrder } from '../types';
 import { formatMoney } from '../utils/money';
 import './FormPage.css';
@@ -58,15 +58,20 @@ const PAGE = {
   PAID_SUCCESS: (no: string, mode: string) => `Bill ${no} marked paid (${mode}) — moved to Completed.`,
 } as const;
 
+/** Same as the server: PLACED → DELIVERED | CANCELLED (older in-between statuses can be closed the same way). */
+const CLOSE_ORDER = [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED];
 const STATUS_TRANSITIONS: Record<string, string[]> = {
-  [ORDER_STATUS.PLACED]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.COOKING, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.COOKING]: [ORDER_STATUS.READY, ORDER_STATUS.CANNOT_DELIVER],
-  [ORDER_STATUS.READY]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANNOT_DELIVER],
+  [ORDER_STATUS.PLACED]: CLOSE_ORDER,
+  [ORDER_STATUS.CONFIRMED]: CLOSE_ORDER,
+  [ORDER_STATUS.COOKING]: CLOSE_ORDER,
+  [ORDER_STATUS.READY]: CLOSE_ORDER,
   [ORDER_STATUS.DELIVERED]: [],
   [ORDER_STATUS.CANCELLED]: [],
   [ORDER_STATUS.CANNOT_DELIVER]: [],
 };
+// Full kitchen flow (paused):
+// [PLACED]: [CONFIRMED, CANCELLED], [CONFIRMED]: [COOKING, CANCELLED],
+// [COOKING]: [READY, CANNOT_DELIVER], [READY]: [DELIVERED, CANNOT_DELIVER]
 
 const NOT_CHARGED_STATUSES: string[] = [ORDER_STATUS.CANCELLED, ORDER_STATUS.CANNOT_DELIVER];
 
@@ -219,7 +224,10 @@ const Orders = () => {
     );
   }
 
-  const allStatuses = Object.values(ORDER_STATUS);
+  // Paused statuses only get a filter chip while some older order still has them
+  const allStatuses = Object.values(ORDER_STATUS).filter(
+    (status) => ORDER_STATUSES_IN_USE.includes(status) || viewOrders.some((o) => o.status === status)
+  );
 
   const renderOrder = (order: IOrder) => {
     // Billed or paid: the order is settled — no status buttons (the kitchen board can still move it along).

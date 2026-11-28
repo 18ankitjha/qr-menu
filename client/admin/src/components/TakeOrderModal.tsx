@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getTables, getOrderingMenu, placeOrderByStaff, getErrorMessage } from '../services/api';
 import { MESSAGES } from '../constants';
 import type { IDish, IOrderingMenu, ITable } from '../types';
+import { subtreeIds } from '../utils/category-tree';
 import './TakeOrder.css';
 
 // ============================================================
@@ -87,11 +88,31 @@ const TakeOrderModal = ({ restaurantId, table, onClose, onPlaced }: ITakeOrderMo
   const visibleDishes = useMemo(() => {
     if (!menu) return [];
     const q = search.trim().toLowerCase();
+    // A category shows its own dishes and those of its sub-categories
+    const inBranch = categoryId ? subtreeIds(menu.categories, categoryId) : null;
     return menu.categories
-      .filter((c) => !categoryId || c._id === categoryId)
+      .filter((c) => !inBranch || inBranch.has(c._id))
       .flatMap((c) => c.dishes)
       .filter((d) => !q || d.name.toLowerCase().includes(q));
   }, [menu, categoryId, search]);
+
+  // Chip rows: top-level categories, then the sub-categories of each picked level (drill-down)
+  const chipRows = useMemo(() => {
+    if (!menu) return [];
+    const ids = new Set(menu.categories.map((c) => c._id));
+    const parentOf = (c: { parentId?: string | null }) => (c.parentId && ids.has(c.parentId) ? c.parentId : '');
+    const chain: string[] = [];
+    for (let id = categoryId; id && !chain.includes(id); id = parentOf(menu.categories.find((c) => c._id === id) ?? {})) {
+      chain.unshift(id);
+    }
+    return ['', ...chain]
+      .map((parent) => ({
+        parent,
+        picked: chain[chain.indexOf(parent) + 1] ?? '',
+        cats: menu.categories.filter((c) => parentOf(c) === parent),
+      }))
+      .filter((row) => row.cats.length > 0);
+  }, [menu, categoryId]);
 
   const lines = Object.values(cart);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
@@ -187,23 +208,25 @@ const TakeOrderModal = ({ restaurantId, table, onClose, onPlaced }: ITakeOrderMo
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <div className="take-order-cats">
-                <button
-                  className={`filter-chip ${!categoryId ? 'filter-chip--active' : ''}`}
-                  onClick={() => setCategoryId('')}
-                >
-                  {TEXT.ALL}
-                </button>
-                {menu.categories.map((c) => (
+              {chipRows.map((row) => (
+                <div key={row.parent || 'top'} className="take-order-cats">
                   <button
-                    key={c._id}
-                    className={`filter-chip ${categoryId === c._id ? 'filter-chip--active' : ''}`}
-                    onClick={() => setCategoryId(c._id)}
+                    className={`filter-chip ${!row.picked ? 'filter-chip--active' : ''}`}
+                    onClick={() => setCategoryId(row.parent)}
                   >
-                    {c.name}
+                    {TEXT.ALL}
                   </button>
-                ))}
-              </div>
+                  {row.cats.map((c) => (
+                    <button
+                      key={c._id}
+                      className={`filter-chip ${row.picked === c._id ? 'filter-chip--active' : ''}`}
+                      onClick={() => setCategoryId(c._id)}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              ))}
               <div className="take-order-dishes">
                 {visibleDishes.length === 0 ? (
                   <p className="take-order-muted">{TEXT.NO_DISHES}</p>

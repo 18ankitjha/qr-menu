@@ -57,4 +57,6 @@ export interface IBillPreview extends IBillTotals {
 export interface IBillFilters {
   status?: BillStatus;
   tableId?: string;
+  from?: Date;
+  to?: Date;
 }

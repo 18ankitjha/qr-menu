@@ -734,6 +734,38 @@ order. Dish details are cached 60 s (`DISH_CACHE_MS`).
   "gpsCoordinates Required").
 - Note: the "Menu Layout" (grid/list) setting is saved but the customer menu doesn't use it yet.
 
+### 6d.18 One menu preview = the real customer menu
+
+- **Preview mode in the menu app:** `/menu/preview` (`client/menu/src/preview/PreviewApp.tsx`) renders the real
+  `Header`, `MenuTab`, `CartTab`, `BottomTabs` (search, Veg / Non-veg, tabs, "Table 1", Call waiter, cart badge).
+  No API calls, no socket, no sign-in; the cart is local and "Place order" / "Call waiter" only show "Preview only".
+- **Admin shows it in an iframe:** `client/admin/src/components/menu-preview/` — `PhoneMenuPreview` (inline on
+  Customer Menu, follows unsaved colour changes live) and `MenuPreview` (overlay in Menu Builder). Data goes over
+  `postMessage` (same origin only): preview posts READY → admin sends DATA `{ menu }` in the
+  `/table-session/resolve` shape, again on every change. Contract: `preview.protocol.ts`, identical in
+  `client/menu/src/preview/` and `client/admin/src/components/menu-preview/`.
+- `fetchCategoriesWithDishes` (`menu-preview/preview-data.ts`) is shared by both admin pages; theme CSS vars moved to
+  `client/menu/src/utils/theme-style.util.ts` (`themeStyle`), used by the menu and the preview.
+- Old hand-built previews removed (`components/MenuPreview.tsx/.css`, inline preview in CustomerMenuSettings).
+- Works wherever admin and menu share an origin (gateway :8080, Render). Opening admin directly on :5173 has no
+  `/menu/preview`.
+
+### 6d.19 Nested categories, bill date filter, fewer order states, simpler table cards
+
+- **Nested categories (up to 3 levels, any mix):** `Category.parentId` (null = top level). Server
+  (`menu/dm/category.dm.ts`) checks the parent is in the same menu, no cycles, and depth ≤ `MAX_CATEGORY_DEPTH` (3,
+  including the moved subtree). Deleting a category that still has sub-categories → 409. Public menu hides a whole
+  branch when an ancestor is hidden. Admin Menu Builder shows an indented tree, "➕ Add sub-category", an
+  "Inside category" picker and a breadcrumb; Take Order drills down level by level. Customer menu adapts: flat →
+  tabs; 2 levels → tabs per top category; 3 levels → a top switch (Food / Drinks) + tabs, sections titled
+  "Italian · Pastas". Search spans everything.
+- **Bills date filter:** `GET /billing/getAll/:restaurantId?from=&to=` (ISO dates, `to` exclusive). Admin Bills page
+  has Today (default) / Yesterday / Last 7 days / All time / Pick dates + a totals line.
+- **Order states trimmed (UI + transitions only):** in use: PLACED → DELIVERED / CANCELLED. CONFIRMED, COOKING,
+  READY, CANNOT_DELIVER stay in the enum for old orders (they can still be closed); old transition map kept
+  commented in `order.dm.ts`. Kitchen shows a single "New" column.
+- **Tables & QR card:** only Download QR (or Retry QR), 🔄 Regenerate, 🗑️ Delete. Take order / bills live on Orders.
+
 ---
 
 ## 7. Decisions made

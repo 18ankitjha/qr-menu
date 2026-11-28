@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   createMenu,
@@ -13,12 +13,15 @@ import {
   setDishAvailability,
   deleteDish,
   uploadImage,
+  getErrorMessage,
 } from '../services/api';
 import { MESSAGES } from '../constants';
 import type { ICategory, IDish } from '../types';
-import { MenuPreview } from '../components/MenuPreview';
+import { MenuPreview } from '../components/menu-preview/MenuPreview';
+import { fetchCategoriesWithDishes, type ICategoryWithDishes } from '../components/menu-preview/preview-data';
 import { usePendingUpload } from '../hooks/usePendingUpload';
 import { thumbUrl } from '../utils/image';
+import { MAX_CATEGORY_DEPTH, flattenCategoryTree, subtreeHeight, subtreeIds } from '../utils/category-tree';
 import './MenuBuilder.css';
 import './FormPage.css';
 
@@ -28,7 +31,7 @@ import './FormPage.css';
 
 const PAGE = {
   TITLE: 'Menu Builder',
-  SUBTITLE: 'Create and manage your menu categories and dishes.',
+  SUBTITLE: `Create and manage your menu categories and dishes. Categories can have sub-categories, up to ${MAX_CATEGORY_DEPTH} levels (e.g. Food → Italian → Pastas).`,
   CREATE_MENU: 'Create Your Menu',
   MENU_NAME_LABEL: 'Menu Name',
   MENU_NAME_PLACEHOLDER: 'e.g. Main Menu',
@@ -38,6 +41,11 @@ const PAGE = {
   CATEGORY_NAME: 'Category Name',
   CATEGORY_DESC: 'Description (optional)',
   CATEGORY_IMAGE: 'Category image (optional — shown on the customer menu)',
+  PARENT_CATEGORY: 'Inside category (optional)',
+  PARENT_HINT: 'Leave as top level, or put it inside another category to make it a sub-category.',
+  TOP_LEVEL: '— Top level —',
+  ADD_SUB: 'Add sub-category',
+  ADD_SUB_TITLE: (parent: string) => `Add sub-category in ${parent}`,
   DISH_SECTION: 'Dishes',
   ADD_DISH: 'Add Dish',
   DISH_FIELDS: {
@@ -85,14 +93,16 @@ const MenuBuilder = () => {
   const [imageUploading, setImageUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
-  const [previewCategories, setPreviewCategories] = useState<(ICategory & { dishes: IDish[] })[]>([]);
+  const [previewCategories, setPreviewCategories] = useState<ICategoryWithDishes[]>([]);
   const catUpload = usePendingUpload();
   const dishUpload = usePendingUpload();
 
   // Category form state
   const [showCatForm, setShowCatForm] = useState(false);
   const [editingCat, setEditingCat] = useState<ICategory | null>(null);
-  const [catForm, setCatForm] = useState({ name: '', description: '', imageUrl: '' });
+  const [catForm, setCatForm] = useState({ name: '', description: '', imageUrl: '', parentId: '' });
+  const treeRows = useMemo(() => flattenCategoryTree(categories), [categories]);
+  const selectedRow = treeRows.find((r) => r.cat._id === selectedCatId);
 
   // Dish form state
   const [showDishForm, setShowDishForm] = useState(false);
@@ -156,16 +166,24 @@ const MenuBuilder = () => {
   };
 
   // --- Category CRUD ---
-  const openCatForm = (cat?: ICategory) => {
+  const openCatForm = (cat?: ICategory, parentId = '') => {
     if (cat) {
       setEditingCat(cat);
-      setCatForm({ name: cat.name, description: cat.description || '', imageUrl: cat.imageUrl || '' });
+      setCatForm({ name: cat.name, description: cat.description || '', imageUrl: cat.imageUrl || '', parentId: cat.parentId || '' });
     } else {
       setEditingCat(null);
-      setCatForm({ name: '', description: '', imageUrl: '' });
+      setCatForm({ name: '', description: '', imageUrl: '', parentId });
     }
     setShowCatForm(true);
   };
+
+  // Where the category in the form may go: not inside itself, and the tree stays ≤ MAX_CATEGORY_DEPTH levels
+  const parentOptions = useMemo(() => {
+    if (!showCatForm) return [];
+    const blocked = editingCat ? subtreeIds(categories, editingCat._id) : new Set<string>();
+    const height = editingCat ? subtreeHeight(treeRows, editingCat._id) : 1;
+    return treeRows.filter((r) => !blocked.has(r.cat._id) && r.depth + height <= MAX_CATEGORY_DEPTH);
+  }, [showCatForm, editingCat, categories, treeRows]);
 
   const handleCategoryImageUpload = async (file: File) => {
     setImageUploading(true);
@@ -184,7 +202,7 @@ const MenuBuilder = () => {
     e.preventDefault();
     if (!menu) return;
     setLoading(true);
-    const payload = { ...catForm, imageUrl: catForm.imageUrl || undefined };
+    const payload = { ...catForm, imageUrl: catForm.imageUrl || undefined, parentId: catForm.parentId || null };
     try {
       if (editingCat) {
         await updateCategory(editingCat._id, payload);
@@ -195,8 +213,8 @@ const MenuBuilder = () => {
       catUpload.commit();
       setShowCatForm(false);
       setMessage(PAGE.SUCCESS_CATEGORY);
-    } catch {
-      setMessage(MESSAGES.ERROR_GENERIC);
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
     } finally {
       setLoading(false);
     }
@@ -214,7 +232,12 @@ const MenuBuilder = () => {
 
   const handleDeleteCategory = async (catId: string) => {
     if (!confirm(MESSAGES.CONFIRM_DELETE)) return;
-    await deleteCategory(catId);
+    try {
+      await deleteCategory(catId);
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
+      return;
+    }
     if (selectedCatId === catId) {
       setSelectedCatId(null);
       setDishes([]);
@@ -322,13 +345,8 @@ const MenuBuilder = () => {
 
   const openPreview = async () => {
     try {
-      const withDishes = await Promise.all(
-        categories.map(async (cat) => {
-          const { data } = await getDishes(cat._id);
-          return { ...cat, dishes: data.data as IDish[] };
-        })
-      );
-      setPreviewCategories(withDishes);
+      if (!menu) return;
+      setPreviewCategories(await fetchCategoriesWithDishes(menu._id));
       setShowPreview(true);
     } catch {
       setMessage(MESSAGES.ERROR_GENERIC);
@@ -408,20 +426,24 @@ const MenuBuilder = () => {
             </div>
           ) : (
             <div className="category-list">
-              {categories.map((cat) => (
+              {treeRows.map(({ cat, depth }) => (
                 <div
                   key={cat._id}
-                  className={`category-item ${selectedCatId === cat._id ? 'category-item--selected' : ''} ${!cat.isActive ? 'category-item--inactive' : ''}`}
+                  className={`category-item ${depth > 1 ? 'category-item--sub' : ''} ${selectedCatId === cat._id ? 'category-item--selected' : ''} ${!cat.isActive ? 'category-item--inactive' : ''}`}
+                  style={{ paddingLeft: 24 + (depth - 1) * 22 }}
                   onClick={() => setSelectedCatId(cat._id)}
                 >
                   <div className="category-info">
-                    <span className="category-name">{cat.name}</span>
+                    <span className="category-name">{depth > 1 && <span className="category-branch">↳</span>}{cat.name}</span>
                     {cat.description && <span className="category-desc">{cat.description}</span>}
                   </div>
                   <div className="category-actions" onClick={(e) => e.stopPropagation()}>
                     <button className="btn-icon" onClick={() => handleToggleCatActive(cat)} title={cat.isActive ? 'Deactivate' : 'Activate'}>
                       {cat.isActive ? '👁️' : '🚫'}
                     </button>
+                    {depth < MAX_CATEGORY_DEPTH && (
+                      <button className="btn-icon" onClick={() => openCatForm(undefined, cat._id)} title={PAGE.ADD_SUB} aria-label={PAGE.ADD_SUB}>➕</button>
+                    )}
                     <button className="btn-icon" onClick={() => openCatForm(cat)}>✏️</button>
                     <button className="btn-icon btn-icon--danger" onClick={() => handleDeleteCategory(cat._id)}>🗑️</button>
                   </div>
@@ -434,7 +456,10 @@ const MenuBuilder = () => {
         {/* Right: Dishes */}
         <div className="panel">
           <div className="panel-header">
-            <h2 className="panel-title">{PAGE.DISH_SECTION}</h2>
+            <h2 className="panel-title">
+              {PAGE.DISH_SECTION}
+              {selectedRow && <span className="panel-breadcrumb"> · {selectedRow.path.join(' › ')}</span>}
+            </h2>
             {selectedCatId && (
               <button className="btn-secondary" onClick={() => openDishForm()}>
                 + {PAGE.ADD_DISH}
@@ -506,7 +531,11 @@ const MenuBuilder = () => {
       {showCatForm && (
         <div className="modal-overlay" onClick={closeCatForm}>
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={handleSaveCategory}>
-            <h2 className="card-title">{editingCat ? MESSAGES.EDIT : MESSAGES.ADD} Category</h2>
+            <h2 className="card-title">
+              {!editingCat && catForm.parentId
+                ? PAGE.ADD_SUB_TITLE(treeRows.find((r) => r.cat._id === catForm.parentId)?.cat.name ?? '')
+                : `${editingCat ? MESSAGES.EDIT : MESSAGES.ADD} Category`}
+            </h2>
             <div className="form-group">
               <label className="form-label">{PAGE.CATEGORY_NAME}</label>
               <input className="form-input" value={catForm.name} onChange={(e) => setCatForm((p) => ({ ...p, name: e.target.value }))} required />
@@ -514,6 +543,16 @@ const MenuBuilder = () => {
             <div className="form-group">
               <label className="form-label">{PAGE.CATEGORY_DESC}</label>
               <textarea className="form-textarea" value={catForm.description} onChange={(e) => setCatForm((p) => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">{PAGE.PARENT_CATEGORY}</label>
+              <select className="form-input" value={catForm.parentId} onChange={(e) => setCatForm((p) => ({ ...p, parentId: e.target.value }))}>
+                <option value="">{PAGE.TOP_LEVEL}</option>
+                {parentOptions.map((r) => (
+                  <option key={r.cat._id} value={r.cat._id}>{r.path.join(' › ')}</option>
+                ))}
+              </select>
+              <p className="form-hint">{PAGE.PARENT_HINT}</p>
             </div>
             <div className="form-group">
               <label className="form-label">{PAGE.CATEGORY_IMAGE}</label>

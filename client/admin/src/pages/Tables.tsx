@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTables, addTable, addBulkTables, deleteTable, generateQr } from '../services/api';
-import { API_ENDPOINTS, MESSAGES } from '../constants';
+import { MESSAGES } from '../constants';
 import type { ITable } from '../types';
 import { getErrorMessage } from '../services/api';
 import { TableBillModal } from '../components/TableBillModal';
-import { TakeOrderModal } from '../components/TakeOrderModal';
 import { TableAlertsBanner } from '../components/TableAlertsBanner';
 import { QrDownloadModal } from '../components/QrDownloadModal';
 import './FormPage.css';
@@ -17,11 +16,10 @@ import './Tables.css';
 
 const PAGE = {
   TITLE: 'Tables & QR Codes',
-  SUBTITLE: 'Add tables — a QR code is generated automatically for each one. Take orders and generate the bill per table.',
+  SUBTITLE: 'Add tables — a QR code is generated automatically for each one. Take orders and bills from the Orders page.',
   SUBTITLE_SETUP: 'Add your tables — a QR code is generated automatically for each one.',
-  SUBTITLE_STAFF: 'Take an order for a table, see its orders and generate the bill.',
-  BTN_ORDERS_BILL: 'Orders & Bill',
-  BTN_TAKE_ORDER: 'Take Order',
+  SUBTITLE_STAFF: 'Download table QR codes. Take orders and generate bills from the Orders page.',
+  BTN_DELETE: 'Delete table',
   ADD_TABLE: 'Add Table',
   BULK_ADD: 'Bulk Add',
   TABLE_NUMBER: 'Table Number',
@@ -38,7 +36,6 @@ const PAGE = {
   QR_GENERATED: 'QR code generated!',
   QR_REGENERATED: (n: number) => `New QR for table #${n} — print and replace the old one.`,
   BTN_REGENERATE_QR: 'Regenerate QR',
-  BTN_OPEN_MENU: 'Open menu',
   CONFIRM_REGENERATE: (n: number) =>
     `Regenerate the QR for table #${n}?\n\nThe old QR stops working immediately — diners scanning it will be asked to scan the new one. Use this if the QR was photographed/shared, or to upgrade an old QR.`,
   LEGACY_QR: 'Old-style QR (links by table id). Regenerate to get a secure link.',
@@ -47,7 +44,6 @@ const PAGE = {
 const Tables = () => {
   const { restaurant, menu, isOwner, isSetupComplete, refreshSetup } = useAuth();
   const [billTable, setBillTable] = useState<ITable | null>(null);
-  const [orderTable, setOrderTable] = useState<ITable | null>(null);
   const [qrTable, setQrTable] = useState<ITable | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [tables, setTables] = useState<ITable[]>([]);
@@ -202,47 +198,43 @@ const Tables = () => {
               <div className="table-number">#{table.tableNumber}</div>
               {table.label && <div className="table-label">{table.label}</div>}
               {table.qrCodeUrl ? (
-                <div className="qr-preview">
-                  <img src={table.qrCodeUrl} alt={`QR Table ${table.tableNumber}`} className="qr-image" />
+                <img src={table.qrCodeUrl} alt={`QR Table ${table.tableNumber}`} className="qr-image" />
+              ) : (
+                <span className="table-label">⚠️ {PAGE.QR_MISSING}</span>
+              )}
+              {table.qrCodeUrl && !table.qrToken && <span className="table-label">⚠️ {PAGE.LEGACY_QR}</span>}
+              <div className="table-card-actions">
+                {table.qrCodeUrl ? (
                   <button type="button" className="btn-secondary btn-sm" onClick={() => setQrTable(table)}>
                     {PAGE.BTN_DOWNLOAD_QR}
                   </button>
-                  {table.qrToken ? (
-                    <a href={API_ENDPOINTS.CUSTOMER_MENU(table.qrToken)} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
-                      {PAGE.BTN_OPEN_MENU}
-                    </a>
-                  ) : (
-                    <span className="table-label">⚠️ {PAGE.LEGACY_QR}</span>
-                  )}
-                  {isOwner && (
-                    <button className="btn-secondary btn-sm" disabled={retryingId === table._id} onClick={() => handleRegenerateQr(table)}>
-                      {retryingId === table._id ? MESSAGES.LOADING : `🔄 ${PAGE.BTN_REGENERATE_QR}`}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="qr-preview">
-                  <span className="table-label">⚠️ {PAGE.QR_MISSING}</span>
-                  {isOwner && (
+                ) : (
+                  isOwner && (
                     <button className="btn-secondary btn-sm" disabled={retryingId === table._id} onClick={() => handleRetryQr(table._id)}>
                       {retryingId === table._id ? MESSAGES.LOADING : PAGE.BTN_RETRY_QR}
                     </button>
-                  )}
-                </div>
-              )}
-              <div className="table-card-actions">
-                {isSetupComplete && (
-                  <>
-                    <button className="btn-primary btn-sm" onClick={() => setOrderTable(table)}>
-                      ➕ {PAGE.BTN_TAKE_ORDER}
-                    </button>
-                    <button className="btn-secondary btn-sm" onClick={() => setBillTable(table)}>
-                      🧾 {PAGE.BTN_ORDERS_BILL}
-                    </button>
-                  </>
+                  )
+                )}
+                {isOwner && table.qrCodeUrl && (
+                  <button
+                    className="btn-icon"
+                    disabled={retryingId === table._id}
+                    onClick={() => handleRegenerateQr(table)}
+                    title={PAGE.BTN_REGENERATE_QR}
+                    aria-label={PAGE.BTN_REGENERATE_QR}
+                  >
+                    {retryingId === table._id ? '…' : '🔄'}
+                  </button>
                 )}
                 {isOwner && (
-                  <button className="btn-icon btn-icon--danger" onClick={() => handleDeleteTable(table._id)}>🗑️</button>
+                  <button
+                    className="btn-icon btn-icon--danger"
+                    onClick={() => handleDeleteTable(table._id)}
+                    title={PAGE.BTN_DELETE}
+                    aria-label={PAGE.BTN_DELETE}
+                  >
+                    🗑️
+                  </button>
                 )}
               </div>
             </div>
@@ -267,15 +259,6 @@ const Tables = () => {
           defaultColour={menu?.theme?.primaryColor}
           customerOrderingEnabled={menu ? menu.customerOrderingEnabled !== false : undefined}
           onClose={() => setQrTable(null)}
-        />
-      )}
-
-      {orderTable && (
-        <TakeOrderModal
-          restaurantId={restaurant._id}
-          table={orderTable}
-          onClose={() => setOrderTable(null)}
-          onPlaced={(msg) => { setOrderTable(null); setMessage(msg); }}
         />
       )}
 

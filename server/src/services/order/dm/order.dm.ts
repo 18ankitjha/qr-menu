@@ -28,17 +28,29 @@ import { RestaurantDM } from '../../restaurant';
 // ============================================================
 
 /**
- * Valid status transitions map.
+ * Valid status transitions. For now the flow is just PLACED → DELIVERED | CANCELLED.
+ * CONFIRMED / COOKING / READY / CANNOT_DELIVER are paused (kept in the enum because older orders may have them;
+ * those can still be closed). To bring the kitchen flow back, swap in the commented map.
  */
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  [OrderStatus.PLACED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED, OrderStatus.CANNOT_DELIVER],
-  [OrderStatus.CONFIRMED]: [OrderStatus.COOKING, OrderStatus.CANCELLED, OrderStatus.CANNOT_DELIVER],
-  [OrderStatus.COOKING]: [OrderStatus.READY, OrderStatus.CANCELLED, OrderStatus.CANNOT_DELIVER],
-  [OrderStatus.READY]: [OrderStatus.DELIVERED, OrderStatus.CANNOT_DELIVER],
+  [OrderStatus.PLACED]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+  [OrderStatus.CONFIRMED]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+  [OrderStatus.COOKING]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+  [OrderStatus.READY]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.CANNOT_DELIVER]: [],
 };
+// Full kitchen flow (paused):
+// const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+//   [OrderStatus.PLACED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED, OrderStatus.CANNOT_DELIVER],
+//   [OrderStatus.CONFIRMED]: [OrderStatus.COOKING, OrderStatus.CANCELLED, OrderStatus.CANNOT_DELIVER],
+//   [OrderStatus.COOKING]: [OrderStatus.READY, OrderStatus.CANCELLED, OrderStatus.CANNOT_DELIVER],
+//   [OrderStatus.READY]: [OrderStatus.DELIVERED, OrderStatus.CANNOT_DELIVER],
+//   [OrderStatus.DELIVERED]: [],
+//   [OrderStatus.CANCELLED]: [],
+//   [OrderStatus.CANNOT_DELIVER]: [],
+// };
 
 type IItemInput = IPlaceOrderInput['items'][number];
 

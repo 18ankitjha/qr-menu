@@ -36,7 +36,7 @@ export const generateTableBill = asyncHandler(async (req: Request, res: Response
   sendSuccess(res, bill, BILLING_MESSAGES.BILL_GENERATED, 201);
 });
 
-/** GET /billing/getAll/:restaurantId?status=&tableId= */
+/** GET /billing/getAll/:restaurantId?status=&tableId=&from=&to= */
 export const getAllBills = asyncHandler(async (req: Request, res: Response) => {
   const bills = await BillDM.getBillsByRestaurantId(
     req.params.restaurantId as string,

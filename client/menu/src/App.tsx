@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
 import * as TableSessionApi from './api/table-session.api';
 import { messageOf, statusOf } from './api/http';
 import { API_ENDPOINTS, MAX_DISH_QUANTITY, MESSAGES } from './constants';
 import type { ICartChange, ITableMenu, ITableSession, TabId } from './types';
 import { parseTableLink, returnPathFor } from './utils/table-link.util';
-import { readablePalette } from './utils/theme.util';
+import { themeStyle } from './utils/theme-style.util';
 import { useCustomer } from './hooks/useCustomer';
 import { useTableSession } from './hooks/useTableSession';
 import { useCooldown } from './hooks/useCooldown';
@@ -102,26 +101,7 @@ const App = () => {
   if (loadError) return <div className="error-screen">{loadError}</div>;
   if (!menu) return <div className="loading-screen">{MESSAGES.LOADING}</div>;
 
-  const { theme } = menu.menu;
-  const palette = readablePalette(theme.backgroundColor, theme.primaryColor, theme.secondaryColor);
-  const themeVars = {
-    '--primary': theme.primaryColor,
-    '--secondary': theme.secondaryColor,
-    '--bg': theme.backgroundColor,
-    '--ink': palette.ink,
-    '--ink-2': palette.ink2,
-    '--ink-3': palette.ink3,
-    '--surface': palette.surface,
-    '--line': palette.line,
-    '--tint': palette.tint,
-    '--bar': palette.bar,
-    '--on-primary': palette.onPrimary,
-    '--primary-text': palette.primaryText,
-    '--accent': palette.accent,
-    colorScheme: palette.dark ? 'dark' : 'light',
-    '--bg-image': theme.backgroundImageUrl ? `url(${theme.backgroundImageUrl})` : 'none',
-    fontFamily: theme.fontFamily,
-  } as CSSProperties;
+  const themeVars = themeStyle(menu.menu.theme);
 
   const cartCount = cart.count;
   const activeOrders = session?.orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length ?? 0;

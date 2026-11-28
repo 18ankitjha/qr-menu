@@ -122,6 +122,20 @@ const ORDER_STATUS = {
   CANNOT_DELIVER: 'CANNOT_DELIVER',
 } ;
 
+/**
+ * Statuses staff can use right now: PLACED → DELIVERED | CANCELLED.
+ * Paused for now (older orders may still have them, so labels/colours stay): CONFIRMED, COOKING, READY, CANNOT_DELIVER.
+ */
+const ORDER_STATUSES_IN_USE: string[] = [
+  ORDER_STATUS.PLACED,
+  // ORDER_STATUS.CONFIRMED,
+  // ORDER_STATUS.COOKING,
+  // ORDER_STATUS.READY,
+  ORDER_STATUS.DELIVERED,
+  ORDER_STATUS.CANCELLED,
+  // ORDER_STATUS.CANNOT_DELIVER,
+];
+
 const ORDER_STATUS_LABELS: Record<string, string> = {
   [ORDER_STATUS.PLACED]: 'Placed',
   [ORDER_STATUS.CONFIRMED]: 'Confirmed',
@@ -217,6 +231,7 @@ export {
   API_ENDPOINTS,
   ORDER_STATUS,
   ORDER_STATUS_LABELS,
+  ORDER_STATUSES_IN_USE,
   ORDER_STATUS_COLORS,
   NAV_ITEMS,
   PAYMENT_MODES,

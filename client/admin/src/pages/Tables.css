@@ -63,3 +63,30 @@
   font-size: 11px;
   padding: 6px 12px;
 }
+
+/* Card actions: Download QR + regenerate / delete icons */
+.table-card .table-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.table-card .btn-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.table-card .btn-icon:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}

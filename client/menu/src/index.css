@@ -357,6 +357,42 @@ button {
   color: var(--on-primary, #fff);
 }
 
+/* Top switch for 3-level menus (e.g. Food | Drinks) */
+.cat-switch {
+  display: flex;
+  gap: 4px;
+  margin: 0 16px 10px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--tint);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cat-switch::-webkit-scrollbar {
+  display: none;
+}
+
+.cat-switch-btn {
+  flex: 1 0 auto;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cat-switch-btn--active {
+  background: var(--surface, #ffffff);
+  color: var(--ink, #1a1a1a);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
 /* ------- Category sections ------- */
 
 .menu-section + .menu-section {

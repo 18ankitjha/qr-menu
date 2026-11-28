@@ -64,7 +64,7 @@ router.post(
   BillingController.generateTableBill
 );
 
-// GET /billing/getAll/:restaurantId?status=&tableId=
+// GET /billing/getAll/:restaurantId?status=&tableId=&from=&to=
 router.get(
   '/getAll/:restaurantId',
   validateParams(restaurantIdParamSchema),

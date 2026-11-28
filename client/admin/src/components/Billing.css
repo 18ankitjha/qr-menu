@@ -239,3 +239,43 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+
+/* Bills page — date filter + range summary */
+.bills-date-bar {
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.bills-date-inputs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bills-date-inputs label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.bills-date-inputs .form-input {
+  width: auto;
+  padding: 6px 10px;
+}
+
+.bills-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.bills-summary strong {
+  color: var(--text-primary);
+  font-size: 15px;
+}

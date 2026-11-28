@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
 import { getBills, getBillPdfUrl, getErrorMessage } from '../services/api';
@@ -32,6 +32,51 @@ const PAGE = {
   PAID_BY: 'Paid by',
   ORDERS: (n: number) => `${n} order${n !== 1 ? 's' : ''}`,
   CLOSE: 'Close',
+  DATE_PRESETS: [
+    { value: 'TODAY', label: 'Today' },
+    { value: 'YESTERDAY', label: 'Yesterday' },
+    { value: 'LAST_7', label: 'Last 7 days' },
+    { value: 'ALL', label: 'All time' },
+    { value: 'CUSTOM', label: 'Pick dates' },
+  ] as { value: DatePreset; label: string }[],
+  FROM: 'From',
+  TO: 'To',
+  NO_BILLS_IN_RANGE: 'No bills for these dates.',
+  SUMMARY: (n: number) => `${n} bill${n !== 1 ? 's' : ''}`,
+  SUMMARY_PAID: 'paid',
+};
+
+type DatePreset = 'TODAY' | 'YESTERDAY' | 'LAST_7' | 'ALL' | 'CUSTOM';
+
+/** "2025-04-20" for a Date, in the browser's local time zone (what <input type="date"> uses). */
+const toDateInput = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const startOfLocalDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const parseDateInput = (v: string) => {
+  const [y, m, d] = v.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/** Local-day boundaries as ISO instants for the API (`to` is exclusive). */
+const getDateRange = (preset: DatePreset, customFrom: string, customTo: string): { from?: string; to?: string } => {
+  const today = startOfLocalDay(new Date());
+  switch (preset) {
+    case 'TODAY':
+      return { from: today.toISOString(), to: addDays(today, 1).toISOString() };
+    case 'YESTERDAY':
+      return { from: addDays(today, -1).toISOString(), to: today.toISOString() };
+    case 'LAST_7':
+      return { from: addDays(today, -6).toISOString(), to: addDays(today, 1).toISOString() };
+    case 'CUSTOM':
+      return {
+        ...(customFrom && { from: parseDateInput(customFrom).toISOString() }),
+        ...(customTo && { to: addDays(parseDateInput(customTo), 1).toISOString() }),
+      };
+    default:
+      return {};
+  }
 };
 
 const BILL_PUSHES = [RESTAURANT_EVENTS.BILL_UPDATED] as const;
@@ -40,6 +85,9 @@ const Bills = () => {
   const { restaurant } = useAuth();
   const [bills, setBills] = useState<IBill[]>([]);
   const [statusFilter, setStatusFilter] = useState<'' | BillStatus>('');
+  const [datePreset, setDatePreset] = useState<DatePreset>('TODAY');
+  const [customFrom, setCustomFrom] = useState(() => toDateInput(new Date()));
+  const [customTo, setCustomTo] = useState(() => toDateInput(new Date()));
   const [viewBill, setViewBill] = useState<IBill | null>(null);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -47,13 +95,24 @@ const Bills = () => {
   const fetchBills = useCallback(async () => {
     if (!restaurant) return;
     try {
-      const { data } = await getBills(restaurant._id, statusFilter ? { status: statusFilter } : {});
+      const { data } = await getBills(restaurant._id, {
+        ...(statusFilter && { status: statusFilter }),
+        ...getDateRange(datePreset, customFrom, customTo),
+      });
       setBills(data.data);
+      setMessage('');
+      setIsError(false);
     } catch (err) {
       setIsError(true);
       setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
     }
-  }, [restaurant, statusFilter]);
+  }, [restaurant, statusFilter, datePreset, customFrom, customTo]);
+
+  const summary = useMemo(() => {
+    const total = bills.reduce((sum, b) => sum + b.totalAmount, 0);
+    const paid = bills.filter((b) => b.status === 'PAID').reduce((sum, b) => sum + b.totalAmount, 0);
+    return { total, paid };
+  }, [bills]);
 
   useLiveRefresh(fetchBills, {
     room: restaurantRoom(restaurant?._id),
@@ -83,6 +142,42 @@ const Bills = () => {
 
       {message && <div className={`form-message ${isError ? 'form-message--error' : ''}`}>{message}</div>}
 
+      <div className="filter-bar bills-date-bar">
+        {PAGE.DATE_PRESETS.map((p) => (
+          <button
+            key={p.value}
+            className={`filter-chip ${datePreset === p.value ? 'filter-chip--active' : ''}`}
+            onClick={() => setDatePreset(p.value)}
+          >
+            📅 {p.label}
+          </button>
+        ))}
+        {datePreset === 'CUSTOM' && (
+          <div className="bills-date-inputs">
+            <label>
+              {PAGE.FROM}
+              <input
+                type="date"
+                className="form-input"
+                value={customFrom}
+                max={customTo || undefined}
+                onChange={(e) => setCustomFrom(e.target.value)}
+              />
+            </label>
+            <label>
+              {PAGE.TO}
+              <input
+                type="date"
+                className="form-input"
+                value={customTo}
+                min={customFrom || undefined}
+                onChange={(e) => setCustomTo(e.target.value)}
+              />
+            </label>
+          </div>
+        )}
+      </div>
+
       <div className="filter-bar">
         {PAGE.FILTERS.map((f) => (
           <button
@@ -98,10 +193,17 @@ const Bills = () => {
       {bills.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">🧾</div>
-          <p className="empty-text">{PAGE.NO_BILLS}</p>
+          <p className="empty-text">{datePreset === 'ALL' ? PAGE.NO_BILLS : PAGE.NO_BILLS_IN_RANGE}</p>
         </div>
       ) : (
         <div className="bills-list">
+          <div className="bills-summary">
+            <span>{PAGE.SUMMARY(bills.length)}</span>
+            <span>
+              <strong>{formatMoney(summary.total)}</strong>
+              {summary.paid !== summary.total && ` · ${formatMoney(summary.paid)} ${PAGE.SUMMARY_PAID}`}
+            </span>
+          </div>
           {bills.map((bill) => (
             <div key={bill._id} className="bill-card">
               <div className="bill-card-main">

@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { setMenuTheme, updateMenu, getCategories, getDishes, updateRestaurant, uploadImage, discardImage, getErrorMessage } from '../services/api';
+import { setMenuTheme, updateMenu, updateRestaurant, uploadImage, discardImage, getErrorMessage } from '../services/api';
 import { MESSAGES, ROUTES } from '../constants';
-import type { IMenuTheme, ICategory, IDish } from '../types';
+import type { IMenuTheme } from '../types';
+import { PhoneMenuPreview } from '../components/menu-preview/MenuPreview';
+import { fetchCategoriesWithDishes, type ICategoryWithDishes } from '../components/menu-preview/preview-data';
 import { usePendingUpload } from '../hooks/usePendingUpload';
 import { readablePalette } from '../utils/theme.util';
 import './FormPage.css';
@@ -70,16 +72,12 @@ const PAGE = {
   FONTS: ['Inter', 'Roboto', 'Outfit', 'Poppins', 'Lato', 'Nunito', 'Montserrat'],
   LAYOUTS: { grid: 'Grid View', list: 'List View' },
   PREVIEW_TITLE: 'Preview',
-  PREVIEW_DESC: 'This is how your menu will look to customers.',
+  PREVIEW_DESC: 'Exactly what customers see after scanning a table QR. Try it: search, filter, add dishes — nothing is sent.',
   SUCCESS: 'Look & feel saved!',
   SUCCESS_LOGO: 'Logo updated!',
   BTN_SAVE: 'Save Look & Feel',
   NO_MENU: 'Create a menu first to set up the customer menu.',
 } as const;
-
-interface ICategoryWithDishes extends ICategory {
-  dishes: IDish[];
-}
 
 const CustomerMenuSettings = () => {
   const { menu, restaurant, setMenu, setRestaurant, refreshSetup, isSetupComplete } = useAuth();
@@ -98,35 +96,18 @@ const CustomerMenuSettings = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [previewCategories, setPreviewCategories] = useState<ICategoryWithDishes[]>([]);
-  const [selectedPreviewCatId, setSelectedPreviewCatId] = useState<string>('');
   const [logoUploading, setLogoUploading] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
   const [orderingSaving, setOrderingSaving] = useState(false);
   const bgUpload = usePendingUpload();
   const customerOrderingEnabled = menu?.customerOrderingEnabled !== false;
 
-  // Fetch real categories & dishes for the live preview
-  const fetchPreviewData = useCallback(async () => {
-    if (!menu) return;
-    try {
-      const { data: catData } = await getCategories(menu._id);
-      const cats = catData.data.filter((c: ICategory) => c.isActive);
-      const withDishes = await Promise.all(
-        cats.map(async (cat: ICategory) => {
-          const { data: dishData } = await getDishes(cat._id);
-          return { ...cat, dishes: dishData.data as IDish[] };
-        })
-      );
-      setPreviewCategories(withDishes);
-      if (withDishes.length > 0) {
-        setSelectedPreviewCatId(withDishes[0]._id);
-      }
-    } catch { /* silently fail */ }
-  }, [menu]);
-
+  // Real categories & dishes for the live preview (once per menu — not on every theme change)
+  const menuId = menu?._id;
   useEffect(() => {
-    fetchPreviewData();
-  }, [fetchPreviewData]);
+    if (!menuId) return;
+    fetchCategoriesWithDishes(menuId).then(setPreviewCategories).catch(() => { /* preview shows an empty menu */ });
+  }, [menuId]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,13 +191,7 @@ const CustomerMenuSettings = () => {
     );
   }
 
-  const selectedPreviewCat = previewCategories.find((c) => c._id === selectedPreviewCatId);
-  const previewDishes = selectedPreviewCat ? selectedPreviewCat.dishes.filter((d) => d.isAvailable) : [];
   const pal = readablePalette(theme.backgroundColor, theme.primaryColor, theme.secondaryColor);
-  const previewAddStyle: React.CSSProperties = {
-    flexShrink: 0, padding: '6px 18px', borderRadius: 8, border: `1px solid ${pal.line}`, background: pal.surface,
-    color: pal.primaryText, fontSize: 12, fontWeight: 800, boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
-  };
 
   return (
     <div className="form-page">
@@ -388,97 +363,11 @@ const CustomerMenuSettings = () => {
         </button>
       </form>
 
-      {/* Live preview — same colours and layout as the customer menu */}
+      {/* Live preview — the real customer menu, with the colours above applied before saving */}
       <div className="form-card">
         <h2 className="card-title">{PAGE.PREVIEW_TITLE}</h2>
         <p className="card-subtitle" style={{ marginBottom: 16 }}>{PAGE.PREVIEW_DESC}</p>
-        <div style={{
-          background: theme.backgroundColor,
-          color: pal.ink,
-          fontFamily: theme.fontFamily,
-          borderRadius: 12,
-          padding: 20,
-          border: '1px solid #e5e7eb',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}>
-          {/* Restaurant header with logo (over the cover image, like the customer menu) */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            ...(theme.backgroundImageUrl && {
-              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.7)), url(${theme.backgroundImageUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              margin: '-20px -20px 0',
-              padding: '56px 20px 14px',
-              borderRadius: '12px 12px 0 0',
-            }),
-          }}>
-            {restaurant?.logoUrl && (
-              <img src={restaurant.logoUrl} alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 8, background: '#fff' }} />
-            )}
-            <div style={{ fontSize: 20, fontWeight: 700, color: theme.backgroundImageUrl ? '#fff' : pal.ink }}>
-              {restaurant?.name || 'Your Restaurant'}
-            </div>
-          </div>
-
-          {/* Category tabs (primary colour = selected tab) */}
-          <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4 }}>
-            {(previewCategories.length > 0 ? previewCategories : [{ _id: '', name: 'Starters' }, { _id: '-', name: 'Mains' }]).map((cat) => {
-              const selected = previewCategories.length > 0 ? selectedPreviewCatId === cat._id : cat._id === '';
-              return (
-                <div
-                  key={cat._id}
-                  onClick={() => cat._id && setSelectedPreviewCatId(cat._id)}
-                  style={{
-                    padding: '6px 14px',
-                    background: selected ? theme.primaryColor : 'transparent',
-                    color: selected ? pal.onPrimary : pal.ink2,
-                    borderRadius: 999,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {cat.name}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Category heading (secondary colour) */}
-          <div style={{ fontSize: 17, fontWeight: 700, color: pal.accent, textTransform: 'capitalize' }}>
-            {selectedPreviewCat?.name ?? 'Starters'}
-          </div>
-
-          {/* Dish rows — details left, photo right with ADD on its edge */}
-          {(previewDishes.length > 0 ? previewDishes.slice(0, 3) : [{ _id: 'sample', name: 'Sample Dish', price: 199, isVeg: true, imageUrl: '' }]).map((dish, i) => (
-            <div key={dish._id} style={{ display: 'flex', gap: 14, padding: '10px 0', borderTop: i ? `1px dashed ${pal.line}` : 'none' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${dish.isVeg ? '#10b981' : '#ef4444'}`, display: 'inline-block' }} />
-                <div style={{ fontSize: 15, fontWeight: 600, color: pal.ink, textTransform: 'capitalize' }}>{dish.name}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: pal.ink }}>₹{dish.price}</div>
-              </div>
-              {dish.imageUrl ? (
-                <div style={{ position: 'relative', width: 96, paddingBottom: 14, flexShrink: 0 }}>
-                  <img src={dish.imageUrl} alt={dish.name} style={{ display: 'block', width: 96, height: 80, objectFit: 'cover', borderRadius: 12 }} />
-                  <div style={{ ...previewAddStyle, position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)' }}>ADD</div>
-                </div>
-              ) : (
-                <div style={{ ...previewAddStyle, alignSelf: 'center' }}>ADD</div>
-              )}
-            </div>
-          ))}
-
-          <p style={{ fontSize: 11, color: pal.ink3, textAlign: 'center' }}>
-            Full preview available in Menu Builder →
-          </p>
-        </div>
+        <PhoneMenuPreview restaurant={restaurant} menu={menu} theme={theme} categories={previewCategories} />
       </div>
     </div>
   );

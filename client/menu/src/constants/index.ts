@@ -93,6 +93,7 @@ const MESSAGES = {
       : `+${quantity} added by others at your table`,
   MENU_EMPTY: 'The menu is being updated. Please ask your waiter.',
   CATEGORIES: 'Categories',
+  MENU_PARTS: 'Menu',
   SEARCH: 'Search',
   SEARCH_PLACEHOLDER: 'Search dishes',
   CLOSE_SEARCH: 'Close search',

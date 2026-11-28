@@ -39,11 +39,15 @@ const ORDER_STATUS_COLORS: Record<string, string> = {
   [ORDER_STATUS.CANNOT_DELIVER]: '#7c3aed',
 };
 
+/**
+ * Board columns. For now orders go PLACED → DELIVERED | CANCELLED, so there is one "New" column; orders still in a
+ * paused status (from before) are shown in it too. Uncomment to bring the kitchen flow back.
+ */
 const STATUS_COLUMNS = [
-  { status: ORDER_STATUS.PLACED, label: 'New', icon: '🆕' },
-  { status: ORDER_STATUS.CONFIRMED, label: 'Confirmed', icon: '✅' },
-  { status: ORDER_STATUS.COOKING, label: 'Cooking', icon: '🔥' },
-  { status: ORDER_STATUS.READY, label: 'Ready', icon: '🔔' },
+  { status: ORDER_STATUS.PLACED, label: 'New', icon: '🆕', also: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.COOKING, ORDER_STATUS.READY] },
+  // { status: ORDER_STATUS.CONFIRMED, label: 'Confirmed', icon: '✅', also: [] },
+  // { status: ORDER_STATUS.COOKING, label: 'Cooking', icon: '🔥', also: [] },
+  // { status: ORDER_STATUS.READY, label: 'Ready', icon: '🔔', also: [] },
 ] as const;
 
 const MESSAGES = {

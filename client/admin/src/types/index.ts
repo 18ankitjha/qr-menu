@@ -114,6 +114,8 @@ interface IOrderingMenu {
 interface ICategory {
   _id: string;
   menuId: string;
+  /** null / missing = top level */
+  parentId?: string | null;
   name: string;
   description?: string;
   displayOrder: number;

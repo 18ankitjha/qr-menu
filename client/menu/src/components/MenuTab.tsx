@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { MESSAGES } from '../constants';
 import type { ICartLine, IDish, ITableMenu } from '../types';
 import DishCard from './DishCard';
+import { buildMenuTree, tabsUnder, treeDepth } from '../utils/menu-tree.util';
 
 interface Props {
   menu: ITableMenu;
@@ -39,21 +40,20 @@ const Chevron = () => (
 
 /**
  * The menu: a sticky bar (search, Veg / Non-veg, category tabs that follow the scroll) over plain category sections.
+ * Nested categories (up to 3 levels) adapt the layout — see utils/menu-tree.util.ts.
  * −/+ edit this diner's line in the live table cart: instant here, on everyone's phone a moment later.
  */
 const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
-  const categories = useMemo(
-    () =>
-      menu.categories
-        .filter((c) => c.isActive)
-        .map((c) => ({ ...c, dishes: c.dishes.filter((d) => d.isAvailable) }))
-        .filter((c) => c.dishes.length > 0),
-    [menu]
-  );
+  // The full tree decides the layout, so filtering never makes the page jump between layouts
+  const fullTree = useMemo(() => buildMenuTree(menu.categories, (d) => d.isAvailable), [menu]);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [diet, setDiet] = useState<DietFilter>('all');
   const [search, setSearch] = useState('');
+  /** Tab being read (a category id) */
   const [active, setActive] = useState('');
+  /** Top switch pick when the menu has 3 levels (e.g. Food | Drinks) */
+  const [rootId, setRootId] = useState('');
+  const mainRef = useRef<HTMLElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLElement>(null);
   /** A tapped tab stays highlighted until the diner scrolls themselves (the page may not reach that section). */
@@ -76,13 +76,19 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
     return byDish;
   }, [lines, me]);
 
-  const visible = useMemo(
-    () =>
-      categories
-        .map((c) => ({ ...c, dishes: c.dishes.filter((d) => matches(d, diet, query)) }))
-        .filter((c) => c.dishes.length > 0),
-    [categories, diet, query]
+  const roots = useMemo(
+    () => buildMenuTree(menu.categories, (d) => d.isAvailable && matches(d, diet, query)),
+    [menu, diet, query]
   );
+  // A switch only for 3-level menus with several top categories; searching looks through everything
+  const useSwitch = !query && treeDepth(fullTree) >= 3 && fullTree.length > 1;
+  const root = useSwitch ? roots.find((r) => r.cat._id === rootId) ?? roots[0] : undefined;
+  const tabs = useMemo(() => {
+    // One top category with sub-categories (e.g. only "Food"): skip it and start one level down
+    const parent = root ?? (!query && roots.length === 1 && roots[0].children.length > 0 ? roots[0] : null);
+    return tabsUnder(parent, roots);
+  }, [root, roots, query]);
+  const visible = useMemo(() => tabs.flatMap((t) => t.sections), [tabs]);
 
   // Highlight the category being read: the last section whose top has passed under the sticky bar
   useEffect(() => {
@@ -94,10 +100,10 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
       // Scrolled to the very end: the last sections can't reach the top, so the last one counts as read
       const atBottom =
         window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-      let current = visible[0]?._id ?? '';
-      for (const cat of visible) {
-        const top = document.getElementById(sectionId(cat._id))?.getBoundingClientRect().top;
-        if (top !== undefined && (top <= line || atBottom)) current = cat._id;
+      let current = visible[0]?.tabId ?? '';
+      for (const section of visible) {
+        const top = document.getElementById(sectionId(section.id))?.getBoundingClientRect().top;
+        if (top !== undefined && (top <= line || atBottom)) current = section.tabId;
       }
       setActive(current);
     };
@@ -129,7 +135,7 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
     tabs.scrollTo({ left: tab.offsetLeft - (tabs.clientWidth - tab.offsetWidth) / 2, behavior: 'smooth' });
   }, [active]);
 
-  if (categories.length === 0) return <p className="empty-note">{MESSAGES.MENU_EMPTY}</p>;
+  if (fullTree.length === 0) return <p className="empty-note">{MESSAGES.MENU_EMPTY}</p>;
 
   const toggle = (id: string) =>
     setCollapsed((prev) => {
@@ -139,9 +145,11 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
       return next;
     });
 
-  const jumpTo = (id: string) => {
+  const jumpTo = (tabId: string) => {
+    const id = tabs.find((t) => t.id === tabId)?.sections[0]?.id;
+    if (!id) return;
     pinnedRef.current = true;
-    setActive(id);
+    setActive(tabId);
     setCollapsed((prev) => {
       if (!prev.has(id)) return prev;
       const next = new Set(prev);
@@ -159,9 +167,32 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
 
   const toggleDiet = (value: DietFilter) => setDiet((d) => (d === value ? 'all' : value));
 
+  const switchRoot = (id: string) => {
+    setRootId(id);
+    pinnedRef.current = false;
+    // Start the new part of the menu from its top
+    const menuTop = (mainRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY - (toolbarRef.current?.offsetHeight ?? 0);
+    if (window.scrollY > menuTop) window.scrollTo({ top: menuTop });
+  };
+
   return (
     <>
       <div className="menu-toolbar" ref={toolbarRef}>
+        {useSwitch && roots.length > 0 && (
+          <div className="cat-switch" role="tablist" aria-label={MESSAGES.MENU_PARTS}>
+            {roots.map((r) => (
+              <button
+                key={r.cat._id}
+                role="tab"
+                aria-selected={root?.cat._id === r.cat._id}
+                className={`cat-switch-btn ${root?.cat._id === r.cat._id ? 'cat-switch-btn--active' : ''}`}
+                onClick={() => switchRoot(r.cat._id)}
+              >
+                {r.cat.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="filter-row">
           <label className="search-box">
             <SearchIcon />
@@ -196,30 +227,30 @@ const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
           </button>
         </div>
 
-        {visible.length > 1 && (
+        {tabs.length > 1 && (
           <nav className="cat-tabs" ref={tabsRef} aria-label={MESSAGES.CATEGORIES}>
-            {visible.map((cat) => (
+            {tabs.map((tab) => (
               <button
-                key={cat._id}
-                data-category={cat._id}
-                className={`cat-tab ${active === cat._id ? 'cat-tab--active' : ''}`}
-                onClick={() => jumpTo(cat._id)}
+                key={tab.id}
+                data-category={tab.id}
+                className={`cat-tab ${active === tab.id ? 'cat-tab--active' : ''}`}
+                onClick={() => jumpTo(tab.id)}
               >
-                {cat.name}
+                {tab.name}
               </button>
             ))}
           </nav>
         )}
       </div>
 
-      <main className="menu-sections">
+      <main className="menu-sections" ref={mainRef}>
         {visible.length === 0 && <p className="empty-note">{MESSAGES.NO_MATCH}</p>}
         {visible.map((cat) => {
           // While searching, every match shows even in a closed section
-          const expanded = !!query || !collapsed.has(cat._id);
+          const expanded = !!query || !collapsed.has(cat.id);
           return (
-            <section key={cat._id} id={sectionId(cat._id)} className={`menu-section ${expanded ? 'menu-section--open' : ''}`}>
-              <button className="menu-section-head" onClick={() => toggle(cat._id)} aria-expanded={expanded}>
+            <section key={cat.id} id={sectionId(cat.id)} className={`menu-section ${expanded ? 'menu-section--open' : ''}`}>
+              <button className="menu-section-head" onClick={() => toggle(cat.id)} aria-expanded={expanded}>
                 <span className="menu-section-title">{cat.name}</span>
                 <span className="menu-section-count">{cat.dishes.length}</span>
                 <span className="menu-section-chevron">

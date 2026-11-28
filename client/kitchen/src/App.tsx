@@ -120,9 +120,12 @@ const App = () => {
       </header>
 
       {/* Status Columns */}
-      <div className="kitchen-board">
+      <div
+        className={`kitchen-board ${STATUS_COLUMNS.length === 1 ? 'kitchen-board--single' : ''}`}
+        style={{ gridTemplateColumns: `repeat(${STATUS_COLUMNS.length}, 1fr)` }}
+      >
         {STATUS_COLUMNS.map((col) => {
-          const colOrders = ordersByStatus[col.status] || [];
+          const colOrders = [col.status, ...col.also].flatMap((status) => ordersByStatus[status] || []);
           return (
             <div key={col.status} className="kitchen-column">
               <div

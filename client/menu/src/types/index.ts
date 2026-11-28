@@ -30,6 +30,8 @@ interface IDish {
 
 interface ICategoryWithDishes {
   _id: string;
+  /** null / missing = top level (categories nest up to 3 levels) */
+  parentId?: string | null;
   name: string;
   description?: string;
   imageUrl?: string;

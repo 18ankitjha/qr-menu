@@ -18,7 +18,11 @@ export const generateTableBillSchema = z.object({ tableId: objectId('table') });
 export const getBillsQuerySchema = z.object({
   status: z.nativeEnum(BillStatus).optional(),
   tableId: objectId('table').optional(),
-});
+  /** Bills created at or after this instant (ISO). The client sends local-day boundaries. */
+  from: z.coerce.date().optional(),
+  /** Bills created before this instant (ISO, exclusive). */
+  to: z.coerce.date().optional(),
+}).refine((q) => !q.from || !q.to || q.from < q.to, { message: '"from" must be before "to"', path: ['to'] });
 
 export const markPaidSchema = z.object({
   paymentMode: z.nativeEnum(PaymentMode),

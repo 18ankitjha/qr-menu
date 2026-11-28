@@ -160,7 +160,7 @@ export const getBillById = async (billId: string): Promise<IBill | null> =>
   BillModel.findById(billId).lean<IBill>();
 
 /**
- * Bills for a restaurant, newest first.
+ * Bills for a restaurant, newest first. Optional status / table / created-at range filters.
  */
 export const getBillsByRestaurantId = async (
   restaurantId: string,
@@ -169,6 +169,12 @@ export const getBillsByRestaurantId = async (
   const query: Record<string, unknown> = { restaurantId };
   if (filters.status) query.status = filters.status;
   if (filters.tableId) query.tableId = filters.tableId;
+  if (filters.from || filters.to) {
+    query.createdAt = {
+      ...(filters.from && { $gte: filters.from }),
+      ...(filters.to && { $lt: filters.to }),
+    };
+  }
   return BillModel.find(query).sort({ createdAt: -1 }).lean<IBill[]>();
 };
 

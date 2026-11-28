@@ -13,6 +13,12 @@ const categorySchema = new Schema<ICategoryDocument>(
       required: true,
       index: true,
     },
+    /** null = top-level category. Nesting is capped at MAX_CATEGORY_DEPTH. */
+    parentId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Category',
+      default: null,
+    },
     name: {
       type: String,
       required: true,
@@ -41,5 +47,7 @@ const categorySchema = new Schema<ICategoryDocument>(
 
 // Compound index for fetching categories for a menu sorted by order
 categorySchema.index({ menuId: 1, displayOrder: 1 });
+// Sub-categories of a parent (delete guard)
+categorySchema.index({ parentId: 1 });
 
 export const CategoryModel = mongoose.model<ICategoryDocument>('Category', categorySchema);

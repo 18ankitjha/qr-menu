@@ -372,3 +372,25 @@
   border-right: 4px solid transparent;
   border-bottom: 7px solid #ef4444;
 }
+
+/* Sub-categories (nested up to 3 levels) */
+.category-item--sub .category-name {
+  font-weight: 500;
+}
+
+.category-branch {
+  color: var(--text-muted, var(--text-secondary));
+  margin-right: 6px;
+}
+
+.panel-breadcrumb {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.menu-builder .form-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}

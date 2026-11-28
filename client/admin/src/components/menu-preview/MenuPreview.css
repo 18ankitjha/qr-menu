@@ -1,0 +1,97 @@
+/* ============================================================
+   Customer menu preview — phone frame around the real menu app (iframe) + the overlay used by Menu Builder.
+   The menu's own look comes from the menu app itself, not from here.
+   ============================================================ */
+
+.mp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+}
+
+.mp-phone-wrap {
+  width: min(375px, 100%);
+}
+
+.mp-close-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  margin: 0;
+}
+
+.mp-close-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1001;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mp-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mp-phone {
+  width: min(375px, 100%);
+  height: min(720px, calc(100dvh - 100px));
+  margin: 0 auto;
+  background: #1a1a1a;
+  border-radius: 48px;
+  padding: 12px;
+  box-shadow: 0 0 0 2px #333, 0 30px 80px rgba(0, 0, 0, 0.35), inset 0 0 0 1px #444;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mp-phone-chrome,
+.mp-phone-bottom {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mp-phone-notch {
+  width: 120px;
+  height: 24px;
+  border-radius: 0 0 18px 18px;
+  border: 2px solid #333;
+  border-top: none;
+}
+
+.mp-phone-bottom::after {
+  content: '';
+  width: 120px;
+  height: 5px;
+  background: #444;
+  border-radius: 3px;
+}
+
+.mp-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  border-radius: 28px;
+  background: #fff;
+}

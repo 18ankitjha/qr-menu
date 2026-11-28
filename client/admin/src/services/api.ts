@@ -220,7 +220,11 @@ const previewTableBill = (tableId: string) =>
 const generateTableBill = (tableId: string) =>
   api.post<IApiResponse<IBill>>(API_ENDPOINTS.BILLING.GENERATE_TABLE_BILL, { tableId });
 
-const getBills = (restaurantId: string, filters: { status?: BillStatus; tableId?: string } = {}) =>
+/** `from` / `to` are ISO instants; `to` is exclusive. */
+const getBills = (
+  restaurantId: string,
+  filters: { status?: BillStatus; tableId?: string; from?: string; to?: string } = {}
+) =>
   api.get<IApiResponse<IBill[]>>(API_ENDPOINTS.BILLING.GET_ALL(restaurantId), { params: filters });
 
 const markBillPaid = (billId: string, paymentMode: PaymentMode) =>
