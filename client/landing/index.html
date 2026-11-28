@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Menu — scan-to-order for restaurants</title>
+<meta name="description" content="QR Menu lets diners scan a table QR to browse your menu, order together and call a waiter — with a live kitchen board and one-tap bills for your staff.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍽️</text></svg>">
+<!-- Served at "/" by the API server in production and by the dev gateway locally. Keep it self-contained. -->
+<style>
+:root{--accent:#ff6b35;--accent-dark:#e85a24;--ink:#111827;--muted:#4b5563;--soft:#fff7f2;--line:#f1e4dc;--radius:18px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;color:var(--ink);background:#fff;line-height:1.55}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;border:2px solid transparent;transition:transform .15s ease,background .15s ease,border-color .15s ease}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-dark)}
+.btn-ghost{background:#fff;color:var(--ink);border-color:#e5e7eb}
+.btn-ghost:hover{border-color:var(--accent)}
+.btn-sm{padding:9px 16px;font-size:14px;border-radius:10px}
+
+/* nav */
+header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);border-bottom:1px solid #f3f4f6}
+.nav{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;text-decoration:none}
+.brand-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--accent);color:#fff;font-size:18px}
+.nav-links{display:flex;align-items:center;gap:22px;font-size:15px}
+.nav-links a{text-decoration:none;color:var(--muted)}
+.nav-links a:hover{color:var(--ink)}
+.nav-cta{display:flex;gap:10px}
+
+/* hero */
+.hero{background:radial-gradient(1200px 500px at 85% -10%,#ffe4d6 0,rgba(255,228,214,0) 60%),linear-gradient(#fff,var(--soft));padding:64px 0 72px}
+.hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}
+.eyebrow{display:inline-block;padding:6px 12px;border-radius:999px;background:#ffe9de;color:#b4410f;font-weight:700;font-size:13px;margin-bottom:18px}
+h1{font-size:clamp(34px,5vw,54px);line-height:1.08;margin:0 0 18px;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+.lead{font-size:18px;color:var(--muted);margin:0 0 28px;max-width:540px}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.hero-note{font-size:14px;color:var(--muted)}
+.hero-note strong{color:var(--ink)}
+
+/* phone mock */
+.mock{position:relative;display:flex;justify-content:center}
+.phone{width:280px;border-radius:38px;background:#111827;padding:12px;box-shadow:0 30px 60px -20px rgba(17,24,39,.45)}
+.screen{border-radius:28px;background:#fff8f4;overflow:hidden;height:540px;display:flex;flex-direction:column}
+.screen>*{flex-shrink:0}
+.screen-head{padding:22px 18px 12px;background:#fff}
+.screen-head b{display:block;font-size:17px}
+.screen-head small{color:var(--muted);font-size:12px}
+.chips{display:flex;gap:6px;padding:10px 14px;overflow:hidden}
+.chip{padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;border:1.5px solid var(--accent);color:var(--accent);background:#fff;white-space:nowrap}
+.chip.on{background:var(--accent);color:#fff}
+.dish{display:flex;gap:10px;align-items:center;margin:8px 14px;padding:10px;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.dish-img{width:52px;height:52px;border-radius:12px;flex-shrink:0}
+.dish div{flex:1;min-width:0}
+.dish b{display:block;font-size:13px}
+.dish i{font-style:normal;font-size:13px;font-weight:800;color:var(--accent)}
+.dish em{font-style:normal;font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;border:2px solid var(--accent);color:var(--accent)}
+.screen-tabs{margin-top:auto;display:flex;justify-content:space-around;padding:10px 0 14px;background:#fff;border-top:1px solid #f3f4f6;font-size:11px;color:var(--muted);text-align:center}
+.screen-tabs .on{color:var(--accent);font-weight:700}
+.float{position:absolute;background:#fff;border-radius:14px;padding:10px 14px;box-shadow:0 12px 30px -10px rgba(17,24,39,.3);font-size:13px;display:flex;align-items:center;gap:8px}
+.float b{display:block}
+.float small{color:var(--muted)}
+.float-1{top:60px;left:-8px}
+.float-2{bottom:90px;right:-12px}
+.qr-tag{position:absolute;bottom:24px;left:6px;background:#111827;color:#fff;border-radius:14px;padding:10px 12px;text-align:center;font-weight:800;font-size:12px;box-shadow:0 12px 30px -10px rgba(17,24,39,.4)}
+.qr-tag svg{display:block;margin:6px auto 0;background:#fff;border-radius:6px;padding:4px}
+
+/* sections */
+section{padding:80px 0}
+.section-head{text-align:center;max-width:640px;margin:0 auto 44px}
+.section-head h2{font-size:clamp(26px,3.4vw,36px);margin:0 0 10px;letter-spacing:-.01em}
+.section-head p{margin:0;color:var(--muted);font-size:17px}
+
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.role{display:flex;flex-direction:column;gap:10px;padding:26px;border-radius:var(--radius);border:1px solid #eef0f3;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.role .ico{font-size:30px}
+.role h3{margin:0;font-size:20px}
+.role p{margin:0;color:var(--muted);font-size:15px;flex:1}
+.role .btn{align-self:flex-start;margin-top:6px}
+
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;counter-reset:step}
+.step{position:relative;padding:26px 22px 22px;border-radius:var(--radius);background:var(--soft);border:1px solid var(--line)}
+.step::before{counter-increment:step;content:counter(step);display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;margin-bottom:14px}
+.step h3{margin:0 0 6px;font-size:17px}
+.step p{margin:0;color:var(--muted);font-size:14px}
+
+.features{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.feature{padding:22px;border-radius:var(--radius);border:1px solid #eef0f3;background:#fff}
+.feature .ico{font-size:26px;margin-bottom:10px;display:block}
+.feature h3{margin:0 0 6px;font-size:16px}
+.feature p{margin:0;color:var(--muted);font-size:14px}
+.alt{background:#fafafa}
+
+.faq{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+details{border:1px solid #eef0f3;border-radius:14px;background:#fff;padding:16px 20px}
+summary{cursor:pointer;font-weight:700;font-size:16px;list-style:none;display:flex;justify-content:space-between;gap:12px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--accent);font-size:20px;line-height:1}
+details[open] summary::after{content:"–"}
+details p{margin:10px 0 0;color:var(--muted)}
+
+.cta-band{background:var(--ink);color:#fff;border-radius:28px;padding:48px 36px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.cta-band h2{margin:0 0 6px;font-size:clamp(24px,3vw,32px)}
+.cta-band p{margin:0;color:#d1d5db}
+.cta-band .btn-ghost{background:transparent;color:#fff;border-color:#374151}
+
+footer{padding:36px 0 44px;color:var(--muted);font-size:14px}
+.foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid #f3f4f6;padding-top:24px}
+.foot a{text-decoration:none;margin-left:18px}
+.foot a:hover{color:var(--ink)}
+
+@media (max-width:960px){
+  .hero-grid{grid-template-columns:1fr}
+  .mock{margin-top:12px}
+  .steps,.features{grid-template-columns:repeat(2,1fr)}
+  .roles{grid-template-columns:1fr}
+  .nav-links{display:none}
+}
+@media (max-width:560px){
+  .hero{padding:40px 0 56px}
+  section{padding:56px 0}
+  .steps,.features{grid-template-columns:1fr}
+  .nav-cta .btn-ghost{display:none}
+  .float-1{left:0}.float-2{right:0}
+  .qr-tag{display:none}
+  .cta-band{padding:32px 24px}
+  .foot a{margin:0 14px 0 0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="/"><span class="brand-mark">🍽️</span>QR Menu</a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#signin">Sign in</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm" href="/admin/login?staff=1">Staff login</a>
+      <a class="btn btn-primary btn-sm" href="/admin/login">Owner sign in</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">📲 No app to install — just scan</span>
+        <h1>Your menu on every table.<br><span>Orders straight to the kitchen.</span></h1>
+        <p class="lead">Guests scan the QR on their table to browse your menu, order together from one shared cart and call a waiter. Your staff see every order live and print the bill in one tap.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="/admin/login">Register your restaurant →</a>
+          <a class="btn btn-ghost" href="/admin/login?staff=1">🧑‍🍳 Staff / waiter login</a>
+        </div>
+        <p class="hero-note"><strong>Dining with us?</strong> Scan the QR code on your table — that opens the menu for your table.</p>
+      </div>
+
+      <div class="mock" aria-hidden="true">
+        <div class="phone">
+          <div class="screen">
+            <div class="screen-head"><b>The Spice Route</b><small>Table 5 · 3 people at this table</small></div>
+            <div class="chips"><span class="chip on">Starters</span><span class="chip">Mains</span><span class="chip">Breads</span><span class="chip">Drinks</span></div>
+            <div class="dish"><span class="dish-img" style="background:linear-gradient(135deg,#fdba74,#f97316)"></span><div><b>Paneer Tikka</b><i>₹249</i></div><em>Add</em></div>
+            <div class="dish"><span class="dish-img" style="background:linear-gradient(135deg,#fde68a,#f59e0b)"></span><div><b>Crispy Corn</b><i>₹199</i></div><em>Add</em></div>
+            <div class="dish"><span class="dish-img" style="background:linear-gradient(135deg,#fca5a5,#dc2626)"></span><div><b>Chicken 65</b><i>₹289</i></div><em>Add</em></div>
+            <div class="dish"><span class="dish-img" style="background:linear-gradient(135deg,#bbf7d0,#16a34a)"></span><div><b>Veg Seekh</b><i>₹229</i></div><em>Add</em></div>
+            <div class="screen-tabs"><span class="on">📖<br>Menu</span><span>🛒<br>Table cart</span><span>🧾<br>Orders &amp; bill</span></div>
+          </div>
+        </div>
+        <div class="float float-1">🔔<span><b>Table 5 called a waiter</b><small>Riya · just now</small></span></div>
+        <div class="float float-2">👨‍🍳<span><b>2 orders cooking</b><small>Kitchen board</small></span></div>
+        <div class="qr-tag">TABLE 5
+          <svg width="56" height="56" viewBox="0 0 7 7" shape-rendering="crispEdges"><path fill="#111827" fill-rule="evenodd" d="M0 0h3v3H0zM1 1v1h1V1zM4 0h3v3H4zM5 1v1h1V1zM0 4h3v3H0zM1 5v1h1V5zM4 4h1v1H4zM5 5h1v1H5zM6 4h1v1H6zM4 6h1v1H4zM6 6h1v1H6z"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="signin">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>One place for everyone</h2>
+        <p>Pick who you are — each role gets just the screens it needs.</p>
+      </div>
+      <div class="roles">
+        <div class="role">
+          <span class="ico">🏪</span>
+          <h3>Restaurant owner</h3>
+          <p>Register your restaurant, build the menu, add tables (QR codes are made for you), add waiters and see every order and bill.</p>
+          <a class="btn btn-primary" href="/admin/login">Sign in with Google</a>
+        </div>
+        <div class="role">
+          <span class="ico">🧑‍🍳</span>
+          <h3>Waiter &amp; staff</h3>
+          <p>Log in with your restaurant code, username and PIN. Take orders for a table, get rung when a table calls you, update order status and settle bills.</p>
+          <a class="btn btn-ghost" href="/admin/login?staff=1">Staff login</a>
+        </div>
+        <div class="role">
+          <span class="ico">📱</span>
+          <h3>Diners</h3>
+          <p>Scan the QR code on your table. Browse the menu, order with everyone at your table, call a waiter and see your bill — no app needed.</p>
+          <a class="btn btn-ghost" href="#how">How it works</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="alt">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Up and running in an afternoon</h2>
+        <p>A short guided setup — each step unlocks the next.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><h3>Register</h3><p>Sign in with Google and add your restaurant’s details. We review and approve it.</p></div>
+        <div class="step"><h3>Build your menu</h3><p>Add categories and dishes with photos, prices, veg/non-veg, spice level and allergens.</p></div>
+        <div class="step"><h3>Add tables</h3><p>Add one table or fifty — each gets its own QR. Download printable cards with the table number.</p></div>
+        <div class="step"><h3>Start serving</h3><p>Guests scan and order (or just browse), the kitchen cooks from a live board and staff bill in one tap.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Everything a busy floor needs</h2>
+        <p>Built for real service — many guests per table, many tables per waiter.</p>
+      </div>
+      <div class="features">
+        <div class="feature"><span class="ico">🛒</span><h3>Shared table cart</h3><p>Everyone at the table adds to one live cart, and anyone can send the order.</p></div>
+        <div class="feature"><span class="ico">🔔</span><h3>Call-waiter alerts</h3><p>A tap on the guest’s phone rings your waiters with the table number.</p></div>
+        <div class="feature"><span class="ico">👨‍🍳</span><h3>Live kitchen board</h3><p>New orders appear instantly; cooks move them from cooking to ready.</p></div>
+        <div class="feature"><span class="ico">🧾</span><h3>One-tap bills</h3><p>GST and service charge added for you. Mark paid by cash, UPI or card; PDF ready.</p></div>
+        <div class="feature"><span class="ico">👀</span><h3>Menu-only mode</h3><p>Prefer waiters to take orders? Let guests browse and call a waiter instead.</p></div>
+        <div class="feature"><span class="ico">🎨</span><h3>Your brand</h3><p>Your logo, colours, font and layout on the menu guests see.</p></div>
+        <div class="feature"><span class="ico">🪑</span><h3>Printable QR cards</h3><p>Each QR shows its table number, in the colour you choose.</p></div>
+        <div class="feature"><span class="ico">🔐</span><h3>Staff PIN login</h3><p>Waiters sign in with a restaurant code and PIN — no email needed.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="alt">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Questions</h2>
+      </div>
+      <div class="faq">
+        <details><summary>Do guests need to install an app?</summary><p>No. The QR opens the menu in the phone’s browser. Guests sign in with Google only when they want to order or call a waiter, so everyone at the table shares one cart and bill.</p></details>
+        <details><summary>Can I use it only as a digital menu?</summary><p>Yes. In <em>Customer Menu</em> settings choose “View only”. Guests browse the menu and can still call a waiter or ask for the bill; your waiters take the order.</p></details>
+        <details><summary>How do waiters know which table needs them?</summary><p>When a guest taps “Call waiter” or “Request bill”, every logged-in waiter hears a ring and sees “Table N called a waiter”. If you have no waiters set up, the owner gets the alert instead.</p></details>
+        <details><summary>What if a printed QR is shared or photographed?</summary><p>Regenerate that table’s QR from the Tables page — the old code stops working straight away.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="cta-band">
+        <div>
+          <h2>Ready to put your menu on the table?</h2>
+          <p>Register in a few minutes. Your guests will thank you.</p>
+        </div>
+        <div class="hero-ctas" style="margin:0">
+          <a class="btn btn-primary" href="/admin/login">Register your restaurant</a>
+          <a class="btn btn-ghost" href="/admin/login?staff=1">Staff login</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>© QR Menu · Scan-to-order for restaurants</span>
+    <span><a href="#how">How it works</a><a href="#features">Features</a><a href="/admin/login">Owner sign in</a><a href="/admin/login?staff=1">Staff login</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

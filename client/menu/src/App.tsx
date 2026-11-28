@@ -85,7 +85,10 @@ const App = () => {
 
   const cartCount = session?.cart.reduce((sum, l) => sum + l.quantity, 0) ?? 0;
   const activeOrders = session?.orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length ?? 0;
-  const canOrder = !!customer && session?.status === 'OPEN';
+  const orderingEnabled = menu.menu.customerOrderingEnabled !== false;
+  const canOrder = orderingEnabled && !!customer && session?.status === 'OPEN';
+  const currentTab: TabId = !orderingEnabled && tab === 'cart' ? 'menu' : tab;
+  const callWaiter = () => void act((id) => TableSessionApi.callWaiter(id), MESSAGES.WAITER_CALLED);
 
   const addDish = (dishId: string) => {
     if (!canOrder) {
@@ -124,7 +127,7 @@ const App = () => {
       <div className="menu-shell">
         <Header menu={menu} customer={customer} session={session} onSignOut={handleSignOut} />
 
-        {customer === null && <SignInCard googleUrl={googleUrl} />}
+        {customer === null && <SignInCard googleUrl={googleUrl} viewOnly={!orderingEnabled} />}
         {customer && !session && (
           <div className="info-card">
             {table.error ? (
@@ -144,16 +147,34 @@ const App = () => {
           <ClosedSession session={session} busy={busy || table.joining} onStartNew={startNew} />
         ) : (
           <>
-            {tab === 'menu' && (
-              <MenuTab menu={menu} cart={session?.cart ?? []} busy={busy} onAdd={addDish} onSetQuantity={setQuantity} />
+            {currentTab === 'menu' && !orderingEnabled && (
+              <div className="info-card view-only-card">
+                <strong>{MESSAGES.VIEW_ONLY_TITLE}</strong>
+                <span>{MESSAGES.VIEW_ONLY_DESC}</span>
+                {session?.status === 'OPEN' && (
+                  <button className="btn-secondary" disabled={busy} onClick={callWaiter}>
+                    {MESSAGES.BTN_CALL_WAITER}
+                  </button>
+                )}
+              </div>
             )}
-            {tab === 'cart' &&
+            {currentTab === 'menu' && (
+              <MenuTab
+                menu={menu}
+                cart={session?.cart ?? []}
+                busy={busy}
+                canAdd={orderingEnabled}
+                onAdd={addDish}
+                onSetQuantity={setQuantity}
+              />
+            )}
+            {currentTab === 'cart' &&
               (session ? (
                 <CartTab session={session} busy={busy} onSetQuantity={setQuantity} onPlaceOrder={placeOrder} />
               ) : (
                 <SignInCard googleUrl={googleUrl} compact />
               ))}
-            {tab === 'orders' &&
+            {currentTab === 'orders' &&
               (session ? (
                 <OrdersTab
                   session={session}
@@ -161,12 +182,18 @@ const App = () => {
                   onRequestBill={() =>
                     void act((id) => TableSessionApi.requestBill(id), MESSAGES.BILL_REQUESTED)
                   }
-                  onCallWaiter={() => void act((id) => TableSessionApi.callWaiter(id), MESSAGES.WAITER_CALLED)}
+                  onCallWaiter={callWaiter}
                 />
               ) : (
-                <SignInCard googleUrl={googleUrl} compact />
+                <SignInCard googleUrl={googleUrl} compact viewOnly={!orderingEnabled} />
               ))}
-            <BottomTabs tab={tab} cartCount={cartCount} activeOrders={activeOrders} onChange={setTab} />
+            <BottomTabs
+              tab={currentTab}
+              cartCount={cartCount}
+              activeOrders={activeOrders}
+              showCart={orderingEnabled}
+              onChange={setTab}
+            />
           </>
         )}
       </div>

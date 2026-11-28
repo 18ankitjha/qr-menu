@@ -1,0 +1,70 @@
+/* ============================================================
+   Customer Menu page — ordering mode picker
+   ============================================================ */
+
+.ordering-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.ordering-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  text-align: left;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.ordering-option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.ordering-option:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.ordering-option--selected {
+  border-color: var(--accent);
+  background: rgba(255, 107, 53, 0.06);
+}
+
+.ordering-option-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.ordering-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.ordering-option-text strong {
+  font-size: 15px;
+}
+
+.ordering-option-text span {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ordering-option-check {
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.customer-menu-section-title {
+  margin: 8px 0 12px;
+}

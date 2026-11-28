@@ -12,12 +12,15 @@
 // ============================================================
 
 import http from 'node:http';
+import fs from 'node:fs';
 import httpProxy from 'http-proxy';
 
 const PORT = Number(process.env.GATEWAY_PORT) || 8080;
 const HOST = '0.0.0.0'; // reachable from a phone on the same Wi-Fi (for scanning QR codes)
 
 const API = 'http://localhost:5001';
+/** Same static page production serves at "/" — read on every request so edits show up without a restart. */
+const LANDING_FILE = new URL('../client/landing/index.html', import.meta.url);
 
 /** First matching prefix wins. `app` routes are front-ends served under their own base path. */
 const ROUTES = [
@@ -51,10 +54,11 @@ table,tbody,tr,td{display:block;width:100%}tr:first-child{display:none}
 tr{border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:12px}td{border:none;padding:4px 0}td:first-child{font-weight:700}}</style></head>
 <body>${body}</body></html>`;
 
-const landingPage = () =>
+const devNotesPage = () =>
   page(
-    'QR Menu — local',
-    `<h1>QR Menu — local dev</h1>
+    'QR Menu — local dev notes',
+    `<h1>QR Menu — local dev notes</h1>
+<p>The public landing page is at <a href="/">/</a>. This page is only served by the local dev gateway.</p>
 <h2>Who logs in where</h2>
 <table>
 <tr><th>Role</th><th>Open</th><th>Sign in with</th></tr>
@@ -99,15 +103,27 @@ const server = http.createServer((req, res) => {
   const path = (req.url ?? '/').split('?')[0];
 
   if (path === '/') {
+    let html;
+    try {
+      html = fs.readFileSync(LANDING_FILE);
+    } catch {
+      html = devNotesPage();
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+    res.end(html);
+    return;
+  }
+
+  if (path === '/dev') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(landingPage());
+    res.end(devNotesPage());
     return;
   }
 
   const route = matchRoute(req.url);
   if (!route) {
     res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(page('Not found', `<h1>Not found</h1><p><a href="/">See available apps</a></p>`));
+    res.end(page('Not found', `<h1>Not found</h1><p><a href="/dev">See available apps</a></p>`));
     return;
   }
 

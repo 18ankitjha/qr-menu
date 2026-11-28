@@ -74,6 +74,8 @@ interface IMenu {
   isActive: boolean;
   theme: IMenuTheme;
   themeSavedAt?: string | null;
+  /** false = view-only menu: customers browse and call a waiter; only staff place orders. */
+  customerOrderingEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -163,6 +165,17 @@ interface IOrderItem {
 interface ITableAlert {
   at: string;
   by: string;
+}
+
+/** Socket push when a diner taps "Call waiter" / "Request bill". `notify` says who should hear it ring. */
+interface ITableAlertEvent {
+  type: 'BILL' | 'WAITER';
+  notify: 'WAITERS' | 'OWNER';
+  sessionId: string;
+  tableId: string;
+  tableNumber: number;
+  by: string;
+  at: string;
 }
 
 /** A table with diners signed in on the customer menu. */
@@ -314,6 +327,7 @@ export type {
   ITable,
   IOrderItem,
   ITableAlert,
+  ITableAlertEvent,
   IOpenTableSession,
   IOrder,
   ITableOrders,

@@ -1,0 +1,93 @@
+/* ============================================================
+   Table alert pop-ups (call waiter / request bill) — fixed, on every admin page
+   ============================================================ */
+
+.alert-popups {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+}
+
+.alert-popup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 2px solid #3b82f6;
+  box-shadow: var(--shadow-lg);
+  animation: alert-popup-in 0.25s ease, alert-popup-pulse 1.2s ease 0.25s 3;
+}
+
+.alert-popup--bill {
+  border-color: #f59e0b;
+}
+
+.alert-popup-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.alert-popup-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-popup-text strong {
+  font-size: 15px;
+}
+
+.alert-popup-text span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.alert-popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.alert-sound-pill {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1100;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+@keyframes alert-popup-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes alert-popup-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@media (max-width: 600px) {
+  .alert-popups {
+    top: 64px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

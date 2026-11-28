@@ -65,8 +65,13 @@ const MESSAGES = {
 
   SIGN_IN_TITLE: 'Sign in to order',
   SIGN_IN_DESC: 'Sign in with Google so your table can share one cart and one bill.',
+  SIGN_IN_TITLE_VIEW_ONLY: 'Sign in to call a waiter',
+  SIGN_IN_DESC_VIEW_ONLY: "Sign in with Google to call a waiter, follow your table's orders and see the bill.",
   SIGN_IN_BTN: 'Continue with Google',
   SIGN_OUT: 'Sign out',
+
+  VIEW_ONLY_TITLE: '👀 Browse the menu',
+  VIEW_ONLY_DESC: 'Your waiter will take your order. Tap below when you are ready.',
 
   TAB_MENU: 'Menu',
   TAB_CART: 'Table cart',

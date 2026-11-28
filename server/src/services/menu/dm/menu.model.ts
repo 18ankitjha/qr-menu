@@ -49,6 +49,11 @@ const menuSchema = new Schema<IMenuDocument>(
       type: Date,
       default: null,
     },
+    // false = "view only": diners browse the menu (and can call a waiter) but only staff place orders
+    customerOrderingEnabled: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,

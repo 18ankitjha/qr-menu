@@ -48,6 +48,7 @@ export const getPublicMenu = async (restaurantId: string) => {
       _id: menu._id,
       name: menu.name,
       theme: menu.theme,
+      customerOrderingEnabled: menu.customerOrderingEnabled !== false,
     },
     categories,
   };

@@ -12,6 +12,7 @@ export const createMenuSchema = z.object({
 export const updateMenuSchema = z.object({
   name: z.string().min(2).max(100).trim().optional(),
   isActive: z.boolean().optional(),
+  customerOrderingEnabled: z.boolean().optional(),
 });
 
 export const setMenuThemeSchema = z.object({

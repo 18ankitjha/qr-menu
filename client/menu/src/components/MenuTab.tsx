@@ -8,6 +8,7 @@ interface Props {
   menu: ITableMenu;
   cart: ICartLine[];
   busy: boolean;
+  canAdd: boolean;
   onAdd: (dishId: string) => void;
   onSetQuantity: (lineId: string, quantity: number) => void;
 }
@@ -35,7 +36,7 @@ const matches = (dish: IDish, diet: DietFilter, query: string) => {
  * The menu as collapsible category cards, with a category icon strip and Search / Veg / Non-veg filters.
  * Quantities come from the live table cart.
  */
-const MenuTab = ({ menu, cart, busy, onAdd, onSetQuantity }: Props) => {
+const MenuTab = ({ menu, cart, busy, canAdd, onAdd, onSetQuantity }: Props) => {
   const categories = useMemo(
     () =>
       menu.categories
@@ -165,6 +166,7 @@ const MenuTab = ({ menu, cart, busy, onAdd, onSetQuantity }: Props) => {
                         tableQuantity={lines.reduce((sum, l) => sum + l.quantity, 0)}
                         myQuantity={mine?.quantity ?? 0}
                         busy={busy}
+                        canAdd={canAdd}
                         onAdd={() => onAdd(dish._id)}
                         onRemoveOne={() => mine && onSetQuantity(mine._id, mine.quantity - 1)}
                       />

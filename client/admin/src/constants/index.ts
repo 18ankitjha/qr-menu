@@ -14,7 +14,9 @@ const ROUTES = {
   ORDERS: '/orders',
   BILLS: '/bills',
   STAFF: '/staff',
-  SETTINGS: '/settings',
+  CUSTOMER_MENU: '/customer-menu',
+  /** Old address of Customer Menu (was "Theme") — redirects. */
+  LEGACY_SETTINGS: '/settings',
 };
 
 const API_ENDPOINTS = {
@@ -156,7 +158,7 @@ const NAV_ITEMS = [
   { path: ROUTES.ORDERS, label: 'Orders', icon: '📦', ownerOnly: false },
   { path: ROUTES.BILLS, label: 'Bills', icon: '🧾', ownerOnly: false },
   { path: ROUTES.STAFF, label: 'Staff', icon: '🧑‍🍳', ownerOnly: true },
-  { path: ROUTES.SETTINGS, label: 'Theme', icon: '🎨', ownerOnly: true },
+  { path: ROUTES.CUSTOMER_MENU, label: 'Customer Menu', icon: '📱', ownerOnly: true },
 ] ;
 
 const PAYMENT_MODES = ['CASH', 'UPI', 'CARD'] as const;
@@ -189,10 +191,10 @@ const SETUP_STEPS = [
   },
   {
     step: 'theme',
-    label: 'Customize Theme',
-    hint: 'Pick colours and layout for the customer menu, then press Save.',
-    route: ROUTES.SETTINGS,
-    icon: '🎨',
+    label: 'Set Up Customer Menu',
+    hint: 'Choose if customers can order from their phone, pick colours and layout, then press Save.',
+    route: ROUTES.CUSTOMER_MENU,
+    icon: '📱',
   },
 ] as const;
 

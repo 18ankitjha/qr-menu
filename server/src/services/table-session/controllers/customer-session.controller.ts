@@ -4,12 +4,13 @@ import { sendSuccess } from '../../../utils/response.util';
 import { asyncHandler, createAppError } from '../../../middlewares/error.middleware';
 import { emitNewOrder, emitTableAlert, emitTableUpdated } from '../../realtime/socket/kitchen.socket';
 import { CustomerDM } from '../../auth';
-import { PublicMenuDM } from '../../menu';
+import { MenuDM, PublicMenuDM } from '../../menu';
 import { RestaurantDM } from '../../restaurant';
+import { StaffDM } from '../../staff';
 import { ITable } from '../../table';
 import * as TableSessionDM from '../dm/table-session.dm';
 import { IDiner, ITableRef, ITableSession } from '../interfaces/table-session.interface';
-import { TABLE_SESSION_MESSAGES, TableAlertType } from '../constants/table-session.constants';
+import { AlertAudience, TABLE_SESSION_MESSAGES, TableAlertType } from '../constants/table-session.constants';
 import { assertNearRestaurant } from '../utils/proximity.util';
 import { toDinerView } from '../utils/session-view.util';
 
@@ -80,8 +81,17 @@ const afterCartChange = async (req: Request, res: Response) => {
   await sendView(res, session, customerId, TABLE_SESSION_MESSAGES.CART_UPDATED);
 };
 
+/** "View only" menus (owner turned customer ordering off): diners can browse and call a waiter, not order. */
+const assertCustomerOrderingOn = async (req: Request): Promise<void> => {
+  const session = await TableSessionDM.getSessionForMember(sessionId(req), req.customer!.customerId);
+  if (!(await MenuDM.isCustomerOrderingEnabled(session.restaurantId.toString()))) {
+    throw createAppError(TABLE_SESSION_MESSAGES.ORDERING_DISABLED, 403);
+  }
+};
+
 /** POST /table-session/cart/add/:sessionId — add a dish to the shared cart. */
 export const addToCart = asyncHandler(async (req: Request, res: Response) => {
+  await assertCustomerOrderingOn(req);
   await TableSessionDM.addToCart(sessionId(req), dinerOf(req), req.body);
   await afterCartChange(req, res);
 });
@@ -94,6 +104,7 @@ export const setCartQuantity = asyncHandler(async (req: Request, res: Response) 
 
 /** POST /table-session/placeOrder/:sessionId — send the shared cart (at `cartVersion`) to the kitchen. */
 export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
+  await assertCustomerOrderingOn(req);
   const diner = dinerOf(req);
   const order = await TableSessionDM.placeCartOrder(
     sessionId(req),
@@ -112,8 +123,11 @@ const raise = (type: TableAlertType, message: string) =>
   asyncHandler(async (req: Request, res: Response) => {
     const diner = dinerOf(req);
     const session = await TableSessionDM.raiseAlert(sessionId(req), diner, type);
-    emitTableAlert(session.restaurantId.toString(), {
+    const restaurantId = session.restaurantId.toString();
+    const activeWaiters = await StaffDM.countActiveStaff(restaurantId);
+    emitTableAlert(restaurantId, {
       type,
+      notify: activeWaiters > 0 ? AlertAudience.WAITERS : AlertAudience.OWNER,
       sessionId: session._id.toString(),
       tableId: session.tableId.toString(),
       tableNumber: session.tableNumber,

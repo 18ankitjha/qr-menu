@@ -7,7 +7,7 @@ import { Restaurant } from './pages/Restaurant';
 import { MenuBuilder } from './pages/MenuBuilder';
 import { Tables } from './pages/Tables';
 import { Orders } from './pages/Orders';
-import { Settings } from './pages/Settings';
+import { CustomerMenuSettings } from './pages/CustomerMenuSettings';
 import { Staff } from './pages/Staff';
 import { Bills } from './pages/Bills';
 import { AuthSuccess } from './pages/AuthSuccess';
@@ -76,7 +76,8 @@ const App = () => {
             <Route path={ROUTES.ORDERS} element={<SetupRoute><Orders /></SetupRoute>} />
             <Route path={ROUTES.BILLS} element={<SetupRoute><Bills /></SetupRoute>} />
             <Route path={ROUTES.STAFF} element={<OwnerRoute><SetupRoute><Staff /></SetupRoute></OwnerRoute>} />
-            <Route path={ROUTES.SETTINGS} element={<OwnerRoute><SetupRoute step="theme"><Settings /></SetupRoute></OwnerRoute>} />
+            <Route path={ROUTES.CUSTOMER_MENU} element={<OwnerRoute><SetupRoute step="theme"><CustomerMenuSettings /></SetupRoute></OwnerRoute>} />
+            <Route path={ROUTES.LEGACY_SETTINGS} element={<Navigate to={ROUTES.CUSTOMER_MENU} replace />} />
           </Route>
         </Routes>
       </AuthProvider>

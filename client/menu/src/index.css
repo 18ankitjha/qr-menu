@@ -1156,3 +1156,9 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.view-only-card strong {
+  color: #111827;
+  font-size: 15px;
+}
+

@@ -37,6 +37,10 @@ export const addStaff = async (input: IAddStaffInput): Promise<IStaffWithPin> =>
 export const getStaffById = async (id: string): Promise<IStaff | null> =>
   StaffModel.findById(id).lean();
 
+/** Active waiters of a restaurant — decides who gets the diners' "call waiter" / "bill" alerts. */
+export const countActiveStaff = async (restaurantId: string): Promise<number> =>
+  StaffModel.countDocuments({ restaurantId, isActive: true });
+
 /** Staff list for the owner, with each waiter's current PIN (null until it is known). */
 export const getStaffByRestaurantId = async (restaurantId: string): Promise<IOwnerStaffView[]> => {
   const staff = await StaffModel.find({ restaurantId }).sort({ createdAt: 1 }).lean();

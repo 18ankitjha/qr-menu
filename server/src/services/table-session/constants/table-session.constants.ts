@@ -23,6 +23,12 @@ export enum TableAlertType {
   WAITER = 'WAITER',
 }
 
+/** Who should be rung for a diner alert: the waiters, or the owner when the restaurant has no active waiters. */
+export enum AlertAudience {
+  WAITERS = 'WAITERS',
+  OWNER = 'OWNER',
+}
+
 export const TABLE_SESSION_LIMITS = {
   /** An open session untouched for this long (and with nothing unbilled) is closed when someone new joins. */
   IDLE_HOURS: 4,
@@ -57,4 +63,5 @@ export const TABLE_SESSION_MESSAGES = {
   DISH_NOT_ON_MENU: 'That dish is not on this restaurant\'s menu.',
   BUSY: 'The table is busy, please try again.',
   UNBILLED_ORDERS: 'This table still has orders that are not billed. Generate the bill first.',
+  ORDERING_DISABLED: 'This restaurant takes orders through its staff. Please call a waiter to order.',
 } as const;

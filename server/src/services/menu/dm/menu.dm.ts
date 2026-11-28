@@ -62,6 +62,12 @@ export const getMenuById = async (menuId: string): Promise<IMenu | null> => {
   return MenuModel.findById(menuId).lean();
 };
 
+/** Can diners order from their phones? Menus saved before the setting existed default to yes. */
+export const isCustomerOrderingEnabled = async (restaurantId: string): Promise<boolean> => {
+  const menu = await MenuModel.findOne({ restaurantId }).select('customerOrderingEnabled').lean();
+  return menu?.customerOrderingEnabled !== false;
+};
+
 /**
  * Update menu name or active status.
  */

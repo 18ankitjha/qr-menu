@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { NAV_ITEMS, MESSAGES, ROUTES } from '../constants';
 import { RestaurantStatusBanner } from './RestaurantStatusBanner';
 import { SetupStepBanner } from './SetupStepBanner';
+import { TableAlertNotifier } from './TableAlertNotifier';
 import './Layout.css';
 
 // ============================================================
@@ -23,7 +24,7 @@ const LAYOUT_TEXT = {
 } as const;
 
 const Layout = () => {
-  const { user, isOwner, isSetupComplete, setup, refreshSetup, logout } = useAuth();
+  const { user, restaurant, isOwner, isSetupComplete, setup, refreshSetup, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -122,6 +123,8 @@ const Layout = () => {
         <SetupStepBanner />
         <Outlet />
       </main>
+
+      {restaurant && isSetupComplete && <TableAlertNotifier restaurantId={restaurant._id} isOwner={isOwner} />}
     </div>
   );
 };

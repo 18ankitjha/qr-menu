@@ -497,6 +497,20 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
   - After deleting, it returns to the list with a success message.
 - Waiter tokens stop working immediately, because their staff records are gone.
 
+### 6d.9 Call-waiter ringing, view-only menu, QR cards, landing page
+- **Alert routing:** `table_alert` (Call waiter / Request bill) now carries `notify: 'WAITERS' | 'OWNER'`.
+  - `WAITERS` when the restaurant has at least one active staff (`staff.dm.ts countActiveStaff`), otherwise `OWNER`.
+  - Admin app (`components/TableAlertNotifier.tsx`, mounted in `Layout.tsx` after setup) rings a chime (`utils/alert-sound.ts`) and shows a pop-up with the **table number** until dismissed.
+  - Waiters ring on `WAITERS`; the owner rings only on `OWNER` but still sees the on-page alert list.
+  - Browsers block sound until the first tap, so a "Tap to enable sound" pill shows until then.
+- **Customer ordering toggle:** new menu field `customerOrderingEnabled` (default `true`).
+  - Set via `PUT /api/v1/menu/update/:menuId`; returned in the public menu.
+  - When `false`, customer add-to-cart and place-order return **403** ("This restaurant takes orders through its staff…"). Joining, Call waiter and Request bill still work.
+  - Customer menu hides Add buttons and the Cart tab and shows a "Browse the menu" card with Call waiter.
+- **Theme tab renamed → Customer Menu** (`/admin/customer-menu`; old `/admin/settings` redirects). Page has "How customers use this menu" (View & order / View only) and "Look & feel".
+- **QR download card** (`components/QrDownloadModal.tsx`): PNG with restaurant name, **TABLE N**, label and CTA; background colour from theme, presets or custom (remembered per restaurant); text colour auto-contrasts.
+- **Landing page:** `client/landing/index.html` (static, shared by the server `/` and the dev gateway `/`). No super admin link; super admins use `/super-admin/` directly. Staff login link is `/admin/login?staff=1` (focuses restaurant code). Gateway dev notes moved to `/dev`.
+
 ---
 
 ## 7. Decisions made

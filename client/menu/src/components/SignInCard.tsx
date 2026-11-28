@@ -3,14 +3,16 @@ import { MESSAGES } from '../constants';
 interface Props {
   googleUrl: string;
   compact?: boolean;
+  /** Menu is view-only: signing in is only for calling a waiter and seeing the bill. */
+  viewOnly?: boolean;
 }
 
 /** Ordering needs a Google account so everyone at the table shares one cart and bill. */
-const SignInCard = ({ googleUrl, compact }: Props) => (
+const SignInCard = ({ googleUrl, compact, viewOnly }: Props) => (
   <div className={`signin-card ${compact ? 'signin-card--compact' : ''}`}>
     <div>
-      <strong>{MESSAGES.SIGN_IN_TITLE}</strong>
-      {!compact && <p>{MESSAGES.SIGN_IN_DESC}</p>}
+      <strong>{viewOnly ? MESSAGES.SIGN_IN_TITLE_VIEW_ONLY : MESSAGES.SIGN_IN_TITLE}</strong>
+      {!compact && <p>{viewOnly ? MESSAGES.SIGN_IN_DESC_VIEW_ONLY : MESSAGES.SIGN_IN_DESC}</p>}
     </div>
     <a className="btn-google" href={googleUrl}>
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">

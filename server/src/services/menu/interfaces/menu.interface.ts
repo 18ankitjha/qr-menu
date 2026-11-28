@@ -12,6 +12,8 @@ export interface IMenu {
   isActive: boolean;
   theme: IMenuTheme;
   themeSavedAt?: Date | null;
+  /** false = view-only menu: customers can't order from their phones (staff still can). Missing = true. */
+  customerOrderingEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +28,7 @@ export interface ICreateMenuInput {
 export interface IUpdateMenuInput {
   name?: string;
   isActive?: boolean;
+  customerOrderingEnabled?: boolean;
 }
 
 export interface ISetMenuThemeInput {

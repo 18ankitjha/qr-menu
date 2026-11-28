@@ -1,19 +1,42 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { setMenuTheme, getCategories, getDishes, updateRestaurant, uploadImage, discardImage } from '../services/api';
+import { setMenuTheme, updateMenu, getCategories, getDishes, updateRestaurant, uploadImage, discardImage, getErrorMessage } from '../services/api';
 import { MESSAGES, ROUTES } from '../constants';
 import type { IMenuTheme, ICategory, IDish } from '../types';
 import { usePendingUpload } from '../hooks/usePendingUpload';
 import './FormPage.css';
+import './CustomerMenuSettings.css';
 
 // ============================================================
-// Settings — Menu theme customization + Restaurant branding
+// Customer Menu — what diners see after scanning a table QR:
+// whether they can order from their phone, the logo, and the look (colours, font, layout).
 // ============================================================
 
 const PAGE = {
-  TITLE: 'Theme Customizer',
-  SUBTITLE: 'Customize the look and feel of your customer-facing menu.',
+  TITLE: 'Customer Menu',
+  SUBTITLE: 'Choose how customers use the menu they open by scanning a table QR, and how it looks.',
+  ORDERING: {
+    TITLE: 'How customers use this menu',
+    SUBTITLE: 'Saved as soon as you pick an option. Waiters can always take orders from the Tables page.',
+    OPTIONS: [
+      {
+        value: true,
+        icon: '🛒',
+        title: 'View & order',
+        body: 'Customers browse, add dishes to a shared table cart and send orders to the kitchen from their phone.',
+      },
+      {
+        value: false,
+        icon: '👀',
+        title: 'View only',
+        body: 'Customers only browse the menu. They can still call a waiter or ask for the bill — the waiter takes the order.',
+      },
+    ],
+    SAVED_ON: 'Customers can now order from their phones.',
+    SAVED_OFF: 'Menu is now view-only — customers call a waiter to order.',
+  },
+  LOOK_TITLE: 'Look & feel',
   FIELDS: {
     PRIMARY: 'Primary Color',
     SECONDARY: 'Secondary Color',
@@ -27,17 +50,17 @@ const PAGE = {
   LAYOUTS: { grid: 'Grid View', list: 'List View' },
   PREVIEW_TITLE: 'Preview',
   PREVIEW_DESC: 'This is how your menu will look to customers.',
-  SUCCESS: 'Theme updated!',
+  SUCCESS: 'Look & feel saved!',
   SUCCESS_LOGO: 'Logo updated!',
-  BTN_SAVE: 'Save Theme',
-  NO_MENU: 'Create a menu first to customize its theme.',
+  BTN_SAVE: 'Save Look & Feel',
+  NO_MENU: 'Create a menu first to set up the customer menu.',
 } as const;
 
 interface ICategoryWithDishes extends ICategory {
   dishes: IDish[];
 }
 
-const Settings = () => {
+const CustomerMenuSettings = () => {
   const { menu, restaurant, setMenu, setRestaurant, refreshSetup, isSetupComplete } = useAuth();
   const navigate = useNavigate();
 
@@ -57,7 +80,9 @@ const Settings = () => {
   const [selectedPreviewCatId, setSelectedPreviewCatId] = useState<string>('');
   const [logoUploading, setLogoUploading] = useState(false);
   const [bgUploading, setBgUploading] = useState(false);
+  const [orderingSaving, setOrderingSaving] = useState(false);
   const bgUpload = usePendingUpload();
+  const customerOrderingEnabled = menu?.customerOrderingEnabled !== false;
 
   // Fetch real categories & dishes for the live preview
   const fetchPreviewData = useCallback(async () => {
@@ -100,6 +125,20 @@ const Settings = () => {
       setMessage(MESSAGES.ERROR_GENERIC);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOrderingChange = async (enabled: boolean) => {
+    if (!menu || enabled === customerOrderingEnabled) return;
+    setOrderingSaving(true);
+    try {
+      const { data } = await updateMenu(menu._id, { customerOrderingEnabled: enabled });
+      setMenu(data.data);
+      setMessage(enabled ? PAGE.ORDERING.SAVED_ON : PAGE.ORDERING.SAVED_OFF);
+    } catch (err) {
+      setMessage(getErrorMessage(err, MESSAGES.ERROR_GENERIC));
+    } finally {
+      setOrderingSaving(false);
     }
   };
 
@@ -161,6 +200,37 @@ const Settings = () => {
       </div>
 
       {message && <div className="form-message">{message}</div>}
+
+      {/* Ordering mode */}
+      <div className="form-card">
+        <h2 className="card-title">{PAGE.ORDERING.TITLE}</h2>
+        <p className="card-subtitle" style={{ marginBottom: 12 }}>{PAGE.ORDERING.SUBTITLE}</p>
+        <div className="ordering-options" role="radiogroup" aria-label={PAGE.ORDERING.TITLE}>
+          {PAGE.ORDERING.OPTIONS.map((option) => {
+            const selected = option.value === customerOrderingEnabled;
+            return (
+              <button
+                key={option.title}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={orderingSaving}
+                className={`ordering-option ${selected ? 'ordering-option--selected' : ''}`}
+                onClick={() => void handleOrderingChange(option.value)}
+              >
+                <span className="ordering-option-icon">{option.icon}</span>
+                <span className="ordering-option-text">
+                  <strong>{option.title}</strong>
+                  <span>{option.body}</span>
+                </span>
+                <span className="ordering-option-check" aria-hidden>{selected ? '●' : '○'}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <h2 className="card-title customer-menu-section-title">{PAGE.LOOK_TITLE}</h2>
 
       {/* Restaurant Logo Upload */}
       <div className="form-card">
@@ -387,4 +457,4 @@ const Settings = () => {
   );
 };
 
-export { Settings };
+export { CustomerMenuSettings };

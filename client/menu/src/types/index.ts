@@ -40,7 +40,7 @@ interface ICategoryWithDishes {
 /** GET /table-session/resolve/... — public, so the menu can be browsed before signing in. */
 interface ITableMenu {
   restaurant: { _id: string; name: string; logoUrl?: string };
-  menu: { _id: string; name: string; theme: IMenuTheme };
+  menu: { _id: string; name: string; theme: IMenuTheme; customerOrderingEnabled?: boolean };
   categories: ICategoryWithDishes[];
   table: { _id: string; tableNumber: number; label?: string };
 }

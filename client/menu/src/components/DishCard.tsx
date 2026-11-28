@@ -10,11 +10,13 @@ interface Props {
   /** This diner's own plain line for the dish, if any — the −/+ control edits it. */
   myQuantity: number;
   busy: boolean;
+  /** false on a view-only menu: no Add / quantity buttons. */
+  canAdd: boolean;
   onAdd: () => void;
   onRemoveOne: () => void;
 }
 
-const DishCard = ({ dish, tableQuantity, myQuantity, busy, onAdd, onRemoveOne }: Props) => {
+const DishCard = ({ dish, tableQuantity, myQuantity, busy, canAdd, onAdd, onRemoveOne }: Props) => {
   const details = [
     dish.spiceLevel && dish.spiceLevel !== 'NONE' ? `🌶️ ${dish.spiceLevel.toLowerCase()}` : '',
     dish.servingSize ? `🍽️ ${dish.servingSize}` : '',
@@ -43,25 +45,27 @@ const DishCard = ({ dish, tableQuantity, myQuantity, busy, onAdd, onRemoveOne }:
             </span>
           ))}
         </div>
-        {othersQuantity > 0 && <p className="dish-others">+{othersQuantity} added by others at your table</p>}
+        {canAdd && othersQuantity > 0 && <p className="dish-others">+{othersQuantity} added by others at your table</p>}
       </div>
-      <div className="dish-cart-action">
-        {myQuantity > 0 ? (
-          <div className="qty-control">
-            <button className="qty-btn" onClick={onRemoveOne} disabled={busy} aria-label="Remove one">
-              −
+      {canAdd && (
+        <div className="dish-cart-action">
+          {myQuantity > 0 ? (
+            <div className="qty-control">
+              <button className="qty-btn" onClick={onRemoveOne} disabled={busy} aria-label="Remove one">
+                −
+              </button>
+              <span className="qty-value">{myQuantity}</span>
+              <button className="qty-btn" onClick={onAdd} disabled={busy} aria-label="Add one">
+                +
+              </button>
+            </div>
+          ) : (
+            <button className="btn-add" onClick={onAdd} disabled={busy}>
+              {MESSAGES.BTN_ADD}
             </button>
-            <span className="qty-value">{myQuantity}</span>
-            <button className="qty-btn" onClick={onAdd} disabled={busy} aria-label="Add one">
-              +
-            </button>
-          </div>
-        ) : (
-          <button className="btn-add" onClick={onAdd} disabled={busy}>
-            {MESSAGES.BTN_ADD}
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </article>
   );
 };

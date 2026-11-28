@@ -2,23 +2,28 @@ import fs from 'fs';
 import path from 'path';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import { logger } from '../../utils/logger';
-import { LANDING_PAGE_HTML } from './landing-page';
 
 // ============================================================
 // Production: the API server also serves the four built front-ends, each under its own path
 // (same layout as the dev gateway), so the whole system is one service on one host.
 //   /admin/  /menu/  /kitchen/  /super-admin/   → client/<app>/dist (single-page apps)
-//   /                                           → landing page
+//   /                                           → client/landing/index.html (static, shared with the dev gateway)
 // ============================================================
 
 const APP_PATHS = ['super-admin', 'admin', 'kitchen', 'menu'] as const;
 
 // server/{src|dist}/services/web-apps → repo root → client/
 const CLIENT_ROOT = path.resolve(__dirname, '../../../../client');
+const LANDING_FILE = path.join(CLIENT_ROOT, 'landing', 'index.html');
 
 export const serveWebApps = (app: Express): void => {
+  const hasLanding = fs.existsSync(LANDING_FILE);
+  if (!hasLanding) logger.warn(`Landing page missing — ${LANDING_FILE}; "/" will redirect to /admin/login`);
+
   app.get('/', (_req, res) => {
-    res.type('html').send(LANDING_PAGE_HTML);
+    if (!hasLanding) return res.redirect(302, '/admin/login');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(LANDING_FILE);
   });
 
   for (const appPath of APP_PATHS) {

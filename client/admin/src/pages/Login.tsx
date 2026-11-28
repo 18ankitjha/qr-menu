@@ -25,6 +25,8 @@ const Login = () => {
   const [searchParams] = useSearchParams();
   // ?code=123456 (link shared from the Staff page) prefills the restaurant code
   const codeFromLink = /^\d{6}$/.test(searchParams.get('code') ?? '') ? searchParams.get('code')! : '';
+  // ?staff=1 (landing page "Staff login") jumps straight to the waiter form
+  const staffFirst = searchParams.get('staff') === '1' && !codeFromLink;
   const [form, setForm] = useState({ restaurantCode: codeFromLink, username: '', pin: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -85,6 +87,7 @@ const Login = () => {
             pattern="\d{6}"
             maxLength={6}
             required
+            autoFocus={staffFirst}
             value={form.restaurantCode}
             onChange={(e) => setForm((p) => ({ ...p, restaurantCode: e.target.value }))}
           />

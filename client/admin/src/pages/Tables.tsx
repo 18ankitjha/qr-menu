@@ -7,6 +7,7 @@ import { getErrorMessage } from '../services/api';
 import { TableBillModal } from '../components/TableBillModal';
 import { TakeOrderModal } from '../components/TakeOrderModal';
 import { TableAlertsBanner } from '../components/TableAlertsBanner';
+import { QrDownloadModal } from '../components/QrDownloadModal';
 import './FormPage.css';
 import './Tables.css';
 
@@ -44,9 +45,10 @@ const PAGE = {
 } as const;
 
 const Tables = () => {
-  const { restaurant, isOwner, isSetupComplete, refreshSetup } = useAuth();
+  const { restaurant, menu, isOwner, isSetupComplete, refreshSetup } = useAuth();
   const [billTable, setBillTable] = useState<ITable | null>(null);
   const [orderTable, setOrderTable] = useState<ITable | null>(null);
+  const [qrTable, setQrTable] = useState<ITable | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [tables, setTables] = useState<ITable[]>([]);
   const [loading, setLoading] = useState(false);
@@ -202,9 +204,9 @@ const Tables = () => {
               {table.qrCodeUrl ? (
                 <div className="qr-preview">
                   <img src={table.qrCodeUrl} alt={`QR Table ${table.tableNumber}`} className="qr-image" />
-                  <a href={table.qrCodeUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => setQrTable(table)}>
                     {PAGE.BTN_DOWNLOAD_QR}
-                  </a>
+                  </button>
                   {table.qrToken ? (
                     <a href={API_ENDPOINTS.CUSTOMER_MENU(table.qrToken)} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
                       {PAGE.BTN_OPEN_MENU}
@@ -254,6 +256,17 @@ const Tables = () => {
           tableNumber={billTable.tableNumber}
           tableLabel={billTable.label}
           onClose={() => setBillTable(null)}
+        />
+      )}
+
+      {qrTable && (
+        <QrDownloadModal
+          table={qrTable}
+          restaurantId={restaurant._id}
+          restaurantName={restaurant.name}
+          defaultColour={menu?.theme?.primaryColor}
+          customerOrderingEnabled={menu ? menu.customerOrderingEnabled !== false : undefined}
+          onClose={() => setQrTable(null)}
         />
       )}
 
