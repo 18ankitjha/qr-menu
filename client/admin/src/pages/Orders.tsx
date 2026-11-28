@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAllOrders, getBills, setOrderStatus, getOrderPdfUrl, getBillPdfUrl, getErrorMessage } from '../services/api';
@@ -14,6 +14,14 @@ import { TableAlertsBanner } from '../components/TableAlertsBanner';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { PayButtons } from '../components/PayButtons';
 import { canEditOrder } from '../utils/order';
+import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
+
+/** Pushes that change the orders / bills on this page. */
+const ORDER_PUSHES = [
+  RESTAURANT_EVENTS.NEW_ORDER,
+  RESTAURANT_EVENTS.ORDER_STATUS_UPDATED,
+  RESTAURANT_EVENTS.BILL_UPDATED,
+] as const;
 
 // ============================================================
 // Orders — current customers per table, and completed (billed) customers per bill
@@ -123,11 +131,11 @@ const Orders = () => {
     } catch { /* empty */ }
   }, [restaurant]);
 
-  useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 10000);
-    return () => clearInterval(interval);
-  }, [fetchOrders]);
+  useLiveRefresh(fetchOrders, {
+    room: restaurantRoom(restaurant?._id),
+    events: ORDER_PUSHES,
+    fallbackMs: FALLBACK_POLL_MS.ORDERS,
+  });
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
@@ -313,7 +321,6 @@ const Orders = () => {
       <TableAlertsBanner
         restaurantId={restaurant._id}
         onOpenBill={(tableId, tableNumber) => setBillTable({ tableId, tableNumber })}
-        onActivity={fetchOrders}
       />
 
       <div className="orders-tabs">

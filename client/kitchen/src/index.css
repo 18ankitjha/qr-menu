@@ -72,6 +72,17 @@ body {
   color: #6b7280;
 }
 
+.kitchen-live {
+  margin-right: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f59e0b;
+}
+
+.kitchen-live--on {
+  color: #10b981;
+}
+
 .kitchen-clock {
   font-size: 20px;
   font-weight: 700;

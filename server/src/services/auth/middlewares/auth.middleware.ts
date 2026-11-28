@@ -33,8 +33,22 @@ declare global {
   }
 }
 
+/**
+ * Restaurant-side caller from an owner/staff token, or null (missing, invalid, or a diner's token).
+ * Shared by HTTP (`requireAuth`) and the realtime socket handshake.
+ */
+export const authContextFromToken = (token?: string): IAuthContext | null => {
+  const payload = verifyToken(token);
+  if (!payload || isCustomerPayload(payload)) return null;
+  if (isStaffPayload(payload)) {
+    return { kind: AuthKind.STAFF, staffId: payload.staffId, restaurantId: payload.restaurantId };
+  }
+  return { kind: AuthKind.USER, userId: payload.userId, email: payload.email };
+};
+
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
-  const payload = verifyToken(extractToken(req));
+  const token = extractToken(req);
+  const payload = verifyToken(token);
   if (!payload) {
     sendError(res, ERROR_MESSAGES.UNAUTHORIZED, 401);
     return;
@@ -45,12 +59,8 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  if (isStaffPayload(payload)) {
-    req.auth = { kind: AuthKind.STAFF, staffId: payload.staffId, restaurantId: payload.restaurantId };
-  } else {
-    req.user = { userId: payload.userId, email: payload.email };
-    req.auth = { kind: AuthKind.USER, userId: payload.userId, email: payload.email };
-  }
+  req.auth = authContextFromToken(token)!;
+  if (req.auth.kind === AuthKind.USER) req.user = { userId: req.auth.userId!, email: req.auth.email! };
   next();
 };
 

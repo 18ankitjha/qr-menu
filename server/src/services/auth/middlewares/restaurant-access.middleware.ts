@@ -21,7 +21,8 @@ export const fromBody = (name: string): RestaurantIdResolver => (req) => req.bod
 export const ALL_RESTAURANT_ROLES = [RestaurantRole.OWNER, RestaurantRole.WAITER];
 export const OWNER_ONLY = [RestaurantRole.OWNER];
 
-const getRoleInRestaurant = async (
+/** The caller's role in this restaurant, or null. Re-reads the DB, so a disabled waiter is refused at once. */
+export const getRoleInRestaurant = async (
   auth: IAuthContext,
   restaurantId: string
 ): Promise<RestaurantRole | null> => {

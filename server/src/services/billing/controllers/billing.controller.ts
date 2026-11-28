@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { sendSuccess, sendError } from '../../../utils/response.util';
 import { asyncHandler } from '../../../middlewares/error.middleware';
 import { getActorName } from '../../auth/utils/actor.util';
-import { emitTableUpdated } from '../../realtime/socket/kitchen.socket';
+import { BillPublisher } from '../../realtime';
 import { BILLING_MESSAGES } from '../constants/billing.constants';
 import { IBillFilters } from '../interfaces/bill.interface';
 import * as BillDM from '../dm/bill.dm';
@@ -31,8 +31,8 @@ export const previewTableBill = asyncHandler(async (req: Request, res: Response)
 export const generateTableBill = asyncHandler(async (req: Request, res: Response) => {
   const generatedBy = await getActorName(req.auth);
   const bill = await BillDM.generateTableBill(req.body.tableId, generatedBy);
-  // Diners at the table see their final bill immediately
-  emitTableUpdated(bill.tableId.toString());
+  // Staff screens and the diners at the table see the bill immediately
+  BillPublisher.billChanged(bill);
   sendSuccess(res, bill, BILLING_MESSAGES.BILL_GENERATED, 201);
 });
 
@@ -65,7 +65,7 @@ export const getBillPdf = asyncHandler(async (req: Request, res: Response) => {
 export const markPaid = asyncHandler(async (req: Request, res: Response) => {
   const paidBy = await getActorName(req.auth);
   const bill = await BillDM.markPaid(req.params.billId as string, req.body.paymentMode, paidBy);
-  emitTableUpdated(bill.tableId.toString());
+  BillPublisher.billChanged(bill);
   sendSuccess(res, bill, BILLING_MESSAGES.BILL_PAID);
 });
 

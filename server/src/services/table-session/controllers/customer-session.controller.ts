@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ERROR_MESSAGES } from '../../../config/constants';
 import { sendSuccess } from '../../../utils/response.util';
 import { asyncHandler, createAppError } from '../../../middlewares/error.middleware';
-import { emitNewOrder, emitTableAlert, emitTableUpdated } from '../../realtime/socket/kitchen.socket';
+import { OrderPublisher, TablePublisher } from '../../realtime';
 import { CustomerDM } from '../../auth';
 import { MenuDM, PublicMenuDM } from '../../menu';
 import { RestaurantDM } from '../../restaurant';
@@ -63,7 +63,7 @@ export const join = asyncHandler(async (req: Request, res: Response) => {
   const diner: IDiner = { ...dinerOf(req), profilePicture: customer?.profilePicture };
   const session = await TableSessionDM.joinTable(table, diner);
 
-  emitTableUpdated(table._id.toString());
+  TablePublisher.tableChanged(table.restaurantId.toString(), table._id.toString());
   await sendView(res, session, diner.customerId, TABLE_SESSION_MESSAGES.JOINED);
 });
 
@@ -77,7 +77,7 @@ export const getSession = asyncHandler(async (req: Request, res: Response) => {
 const afterCartChange = async (req: Request, res: Response) => {
   const customerId = req.customer!.customerId;
   const session = await TableSessionDM.getSessionForMember(sessionId(req), customerId);
-  emitTableUpdated(session.tableId.toString());
+  TablePublisher.tableChanged(session.restaurantId.toString(), session.tableId.toString());
   await sendView(res, session, customerId, TABLE_SESSION_MESSAGES.CART_UPDATED);
 };
 
@@ -112,8 +112,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     req.body.cartVersion,
     req.body.specialInstructions
   );
-  emitNewOrder(order.restaurantId.toString(), order);
-  emitTableUpdated(order.tableId.toString());
+  OrderPublisher.orderPlaced(order);
 
   const session = await TableSessionDM.getSessionForMember(sessionId(req), diner.customerId);
   await sendView(res, session, diner.customerId, TABLE_SESSION_MESSAGES.ORDER_PLACED, 201);
@@ -125,7 +124,7 @@ const raise = (type: TableAlertType, message: string) =>
     const session = await TableSessionDM.raiseAlert(sessionId(req), diner, type);
     const restaurantId = session.restaurantId.toString();
     const activeWaiters = await StaffDM.countActiveStaff(restaurantId);
-    emitTableAlert(restaurantId, {
+    TablePublisher.tableAlert(restaurantId, {
       type,
       notify: activeWaiters > 0 ? AlertAudience.WAITERS : AlertAudience.OWNER,
       sessionId: session._id.toString(),
@@ -134,7 +133,6 @@ const raise = (type: TableAlertType, message: string) =>
       by: diner.name,
       at: new Date(),
     });
-    emitTableUpdated(session.tableId.toString());
     await sendView(res, session, diner.customerId, message);
   });
 

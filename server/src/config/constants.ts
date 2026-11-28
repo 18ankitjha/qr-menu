@@ -136,19 +136,7 @@ export const CLOUDINARY_FOLDERS = {
   BACKGROUNDS: 'qr-menu/backgrounds',
 } ;
 
-export const SOCKET_EVENTS = {
-  NEW_ORDER: 'new_order',
-  ORDER_STATUS_UPDATED: 'order_status_updated',
-  JOIN_RESTAURANT_ROOM: 'join_restaurant_room',
-  LEAVE_RESTAURANT_ROOM: 'leave_restaurant_room',
-  /** Customer menu: watch one table (payload: tableId). */
-  JOIN_TABLE_ROOM: 'join_table_room',
-  LEAVE_TABLE_ROOM: 'leave_table_room',
-  /** To the table room: something changed (cart, orders, bill) — refetch. Carries no data. */
-  TABLE_SESSION_UPDATED: 'table_session_updated',
-  /** To the restaurant room: a table requested the bill / called a waiter. */
-  TABLE_ALERT: 'table_alert',
-} ;
+// Socket event names and rooms live in services/realtime/constants/realtime.constants.ts
 
 export const ERROR_MESSAGES = {
   UNAUTHORIZED: 'Authentication required. Please log in.',

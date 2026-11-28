@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
 import { getBills, getBillPdfUrl, getErrorMessage } from '../services/api';
 import { MESSAGES } from '../constants';
 import type { IBill, BillStatus } from '../types';
@@ -33,6 +34,8 @@ const PAGE = {
   CLOSE: 'Close',
 };
 
+const BILL_PUSHES = [RESTAURANT_EVENTS.BILL_UPDATED] as const;
+
 const Bills = () => {
   const { restaurant } = useAuth();
   const [bills, setBills] = useState<IBill[]>([]);
@@ -52,11 +55,11 @@ const Bills = () => {
     }
   }, [restaurant, statusFilter]);
 
-  useEffect(() => {
-    fetchBills();
-    const interval = setInterval(fetchBills, 15000);
-    return () => clearInterval(interval);
-  }, [fetchBills]);
+  useLiveRefresh(fetchBills, {
+    room: restaurantRoom(restaurant?._id),
+    events: BILL_PUSHES,
+    fallbackMs: FALLBACK_POLL_MS.BILLS,
+  });
 
   const openPdf = (billId: string) => window.open(getBillPdfUrl(billId), '_blank');
 

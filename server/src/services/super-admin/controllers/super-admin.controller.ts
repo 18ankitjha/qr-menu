@@ -16,6 +16,7 @@ import * as DishDM from '../../menu/dm/dish.dm';
 import * as TableDM from '../../table/dm/table.dm';
 import * as OrderDM from '../../order/dm/order.dm';
 import { deleteRestaurantCascade } from '../dm/restaurant-deletion.dm';
+import { RestaurantPublisher } from '../../realtime';
 import { logger } from '../../../utils/logger';
 import { SUPER_ADMIN_LIMITS, SUPER_ADMIN_MESSAGES } from '../constants/super-admin.constants';
 import { IListRestaurantsQuery } from '../validators/super-admin.validator';
@@ -135,6 +136,8 @@ const changeStatus = (action: RestaurantStatusAction) =>
       actorEmail: req.user!.email,
     });
 
+    // The owner's open screens unlock / lock at once instead of waiting for a refresh
+    RestaurantPublisher.restaurantStatusChanged(updated._id.toString(), updated.status ?? '');
     const [withOwner] = await withOwners([updated]);
     sendSuccess(res, withOwner, SUCCESS_MESSAGES.RESTAURANT_STATUS_UPDATED(withOwner.status));
   });

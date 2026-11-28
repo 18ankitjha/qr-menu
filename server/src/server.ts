@@ -2,7 +2,7 @@ import http from 'http';
 import app from './app';
 import { env } from './config/env';
 import { connectDB } from './config/db';
-import { initializeSocket } from './services/realtime/socket/kitchen.socket';
+import { initializeRealtime } from './services/realtime';
 import { RestaurantDM } from './services/restaurant';
 import { logger } from './utils/logger';
 import { SERVER_MESSAGES } from './config/constants';
@@ -23,7 +23,7 @@ const startServer = async (): Promise<void> => {
 
     const server = http.createServer(app);
 
-    initializeSocket(server);
+    initializeRealtime(server);
 
     server.listen(env.PORT, '0.0.0.0', () => {
       logger.info(SERVER_MESSAGES.SERVER_RUNNING(env.PORT, env.NODE_ENV));

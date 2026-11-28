@@ -1,17 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
+import { useCallback, useState } from 'react';
 import { getOpenTableSessions, clearTableAlert, closeTableSession, getErrorMessage } from '../services/api';
-import { SOCKET_EVENTS, MESSAGES } from '../constants';
+import { MESSAGES } from '../constants';
+import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
 import type { IOpenTableSession } from '../types';
 import { formatMoney } from '../utils/money';
 import './TableAlertsBanner.css';
 
 // ============================================================
 // Table alerts — diners on the QR menu asked for the bill or called a waiter.
-// Pushed over the restaurant socket room; polled as a fallback.
+// Refreshed by the restaurant room's `tables_updated` push (any table change: diners, cart, orders,
+// alerts, bill). Polls only while the live connection is down.
 // ============================================================
 
-const POLL_MS = 15000;
+const TABLE_PUSHES = [RESTAURANT_EVENTS.TABLES_UPDATED] as const;
 
 const TEXT = {
   BILL: (n: number) => `Table #${n} asked for the bill`,
@@ -37,13 +38,11 @@ interface Props {
   restaurantId: string;
   /** Opens the table's Orders & Bill modal. */
   onOpenBill: (tableId: string, tableNumber: number) => void;
-  /** Something changed at a table (new customer order / alert) — lets the page refresh its orders too. */
-  onActivity?: () => void;
 }
 
 type AlertType = 'BILL' | 'WAITER';
 
-const TableAlertsBanner = ({ restaurantId, onOpenBill, onActivity }: Props) => {
+const TableAlertsBanner = ({ restaurantId, onOpenBill }: Props) => {
   const [sessions, setSessions] = useState<IOpenTableSession[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -52,30 +51,14 @@ const TableAlertsBanner = ({ restaurantId, onOpenBill, onActivity }: Props) => {
     try {
       const { data } = await getOpenTableSessions(restaurantId);
       setSessions(data.data);
-    } catch { /* keep the last list; next poll retries */ }
+    } catch { /* keep the last list; the next push / fallback poll retries */ }
   }, [restaurantId]);
 
-  useEffect(() => {
-    const first = setTimeout(fetchSessions, 0);
-    const interval = setInterval(fetchSessions, POLL_MS);
-
-    const socket = io({ withCredentials: true });
-    const join = () => socket.emit(SOCKET_EVENTS.JOIN_RESTAURANT_ROOM, restaurantId);
-    const onChange = () => {
-      fetchSessions();
-      onActivity?.();
-    };
-    socket.on('connect', join);
-    socket.on(SOCKET_EVENTS.TABLE_ALERT, onChange);
-    socket.on(SOCKET_EVENTS.NEW_ORDER, onChange);
-
-    return () => {
-      clearTimeout(first);
-      clearInterval(interval);
-      socket.emit(SOCKET_EVENTS.LEAVE_RESTAURANT_ROOM, restaurantId);
-      socket.disconnect();
-    };
-  }, [restaurantId, fetchSessions, onActivity]);
+  useLiveRefresh(fetchSessions, {
+    room: restaurantRoom(restaurantId),
+    events: TABLE_PUSHES,
+    fallbackMs: FALLBACK_POLL_MS.TABLES,
+  });
 
   const dismiss = async (sessionId: string, type: AlertType) => {
     try {

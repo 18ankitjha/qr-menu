@@ -27,16 +27,7 @@ const API_ENDPOINTS = {
   BILL_PDF: (sessionId: string) => `${API_BASE_URL}/billing/customer/getPdf/${sessionId}`,
 } as const;
 
-const SOCKET_EVENTS = {
-  JOIN_TABLE_ROOM: 'join_table_room',
-  LEAVE_TABLE_ROOM: 'leave_table_room',
-  TABLE_SESSION_UPDATED: 'table_session_updated',
-} as const;
-
 const SYNC = {
-  /** Refetch this often when the live connection is down (and as a safety net when it's up). */
-  POLL_OFFLINE_MS: 5000,
-  POLL_ONLINE_MS: 30000,
   /** A billed table older than this isn't shown again — the next visit starts a new order. */
   SHOW_CLOSED_FOR_MS: 3 * 60 * 60 * 1000,
 } as const;
@@ -115,4 +106,4 @@ const MESSAGES = {
   ALL: 'All',
 } as const;
 
-export { API_BASE_URL, API_ENDPOINTS, SOCKET_EVENTS, SYNC, STORAGE_KEYS, ORDER_STATUS_LABELS, MESSAGES };
+export { API_BASE_URL, API_ENDPOINTS, SYNC, STORAGE_KEYS, ORDER_STATUS_LABELS, MESSAGES };

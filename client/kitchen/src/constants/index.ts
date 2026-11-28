@@ -3,17 +3,10 @@
 // ============================================================
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'; // same origin as the app (gateway / reverse proxy)
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
 
 const API_ENDPOINTS = {
   KITCHEN_ORDERS: (restaurantId: string) =>
     `${API_BASE_URL}/order/getKitchenOrders/${restaurantId}`,
-} as const;
-
-const SOCKET_EVENTS = {
-  NEW_ORDER: 'new_order',
-  ORDER_STATUS_UPDATED: 'order_status_updated',
-  JOIN_RESTAURANT_ROOM: 'join_restaurant_room',
 } as const;
 
 const ORDER_STATUS = {
@@ -65,13 +58,15 @@ const MESSAGES = {
   AUDIO_NEW_ORDER: '/notification.mp3',
   RECENTLY_COMPLETED: 'Recently Completed',
   ERROR_NO_RESTAURANT: 'Restaurant ID required. Add ?restaurant=<id> to URL.',
+  LIVE: '● Live',
+  OFFLINE: '○ Reconnecting…',
+  LIVE_HINT: 'New orders appear instantly',
+  OFFLINE_HINT: 'Live connection lost — checking for orders every 15 seconds',
 } as const;
 
 export {
   API_BASE_URL,
-  SOCKET_URL,
   API_ENDPOINTS,
-  SOCKET_EVENTS,
   ORDER_STATUS,
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,

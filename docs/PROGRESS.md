@@ -522,6 +522,63 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
 - **Ring twice:** each alert plays the chime twice and stops (no 15s repeats). The pop-up stays until dismissed.
 - Limitation: a locked phone / closed tab can't ring (browser JS is paused). That needs Web Push.
 
+### 6d.11 Realtime service: Socket.IO first, polling only as fallback
+**Who connects to whom.** Each open browser app holds ONE socket to the API's realtime service (same port,
+path `/socket.io`). Order / billing / table-session / super-admin services never touch sockets; they call a
+publisher function and the publisher picks the rooms.
+
+```
+ Customer phone (menu) ─┐                      ┌─ order.controller ──────► OrderPublisher ─┐
+ Owner / waiter (admin) ┼── 1 socket each ──►  │  billing.controller ────► BillPublisher  ─┤
+ Kitchen board ─────────┘   (/socket.io)       │  table-session ctrls ───► TablePublisher ─┼─► publish(rooms, event, signal)
+                          API realtime service │  super-admin.controller ► RestaurantPublisher ┘        │
+                          rooms ◄──────────────┴────────────────────────────────────────────────────────┘
+   restaurant:<id>  staff only (cookie checked: owner or active waiter of that restaurant)
+   kitchen:<id>     kitchen board, no login, order signals only
+   table:<id>       diners at that table, "changed" pings only
+```
+Pushes are small signals (ids + status). Screens refetch over REST, so permissions stay in the API.
+
+| Event | Room | Sent when | Who listens |
+|---|---|---|---|
+| `new_order` | restaurant, kitchen | order placed (diner or waiter) | Orders page, kitchen board (+ chime) |
+| `order_status_updated` | restaurant, kitchen | status or items changed | Orders page, kitchen board |
+| `bill_updated` | restaurant | bill generated / paid | Orders, Bills |
+| `tables_updated` | restaurant | anything at a table changed | table alerts banner |
+| `table_alert` | restaurant | diner calls waiter / asks for bill | TableAlertNotifier (rings twice) |
+| `restaurant_updated` | restaurant | super admin approves / suspends | Dashboard approval wait |
+| `table_session_updated` | table | cart, order, bill, staff close | customer menu (Cart / Orders tabs) |
+
+**Code layout.**
+- Server `services/realtime/`: `constants/` (event + room names), `interfaces/` (signal shapes),
+  `socket/` (server, handshake auth, room joins with acks, optional Redis adapter), `publishers/`
+  (`publish.ts` is the only place that emits), `index.ts`.
+- Clients `src/realtime/` in admin, kitchen and menu: `socket.ts` (one lazy shared socket), `rooms.ts`
+  (ref-counted rooms, rejoin on reconnect, "live" only after the server acks the join), `hooks.ts`
+  (`useRoom`, `useSocketEvent`, `useLiveRefresh`) — identical in all three apps, change together.
+  `events.ts` is per app (its event names, rooms and fallback intervals).
+
+**Fallback rules (`useLiveRefresh`).** Load once → refetch on a push (bursts merged, 300 ms) → refetch when the
+room (re)joins, the tab becomes visible or the network returns → poll only while the room is NOT live and the tab
+is visible (admin orders 10 s, bills/tables 15 s, alerts/approval 30 s; kitchen 15 s; menu 5 s). Measured on the
+kitchen board: 0 requests in 35 s while live; every 15 s with the socket blocked; back to 0 after reconnect.
+
+**Add a new push (3 steps).** 1) add the name to `RESTAURANT_EVENTS` / `TABLE_EVENTS` (server constants) and the
+app's `realtime/events.ts`; 2) add a publisher function (or reuse one) and call it from the controller after the
+DB write; 3) on the screen, put the event in `useLiveRefresh({ events })` or use `useSocketEvent`.
+
+**Debug.** Browser: `localStorage.setItem('qr:realtime-debug','1')` and reload → logs connect, joins, acks and
+pushes. Server (dev): `[realtime]` debug lines for connect / join (with role) / refused join / every publish.
+Join errors: `UNAUTHORIZED` (no login), `FORBIDDEN` (not staff of that restaurant), `INVALID_ID`.
+
+**Scaling.** One API instance needs nothing extra. For several instances set `REDIS_URL` and run
+`npm i @socket.io/redis-adapter redis` in `server/` (and use sticky sessions or websocket-only transport at the
+load balancer); `socket/scaling.adapter.ts` picks it up.
+
+**Caveats.** Room access is checked at join time — a waiter disabled mid-shift keeps pushes until their socket
+reconnects (the data itself still needs REST, which is checked every call). Opening a page costs ~2 GETs (first
+load + catch-up once live).
+
 ---
 
 ## 7. Decisions made
@@ -546,6 +603,7 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
 | Several diners at one table | One table session + one shared cart; items tagged by person; anyone can place; `cartVersion` stops double orders |
 | Table session lifetime | Opened by the first diner, closed when the bill is generated (or idle 4 h with nothing unbilled, or staff close) |
 | Customer live sync | Socket "changed" ping to `table:<id>` + REST refetch, polling fallback (no order data over the socket) |
+| Live updates (all apps) | Socket.IO first; services publish via `services/realtime` publishers; clients poll only while the socket is down; Redis adapter when scaling out |
 
 ---
 
@@ -582,8 +640,8 @@ Order follows [SYSTEM_DESIGN.md §9](./SYSTEM_DESIGN.md).
   `getActiveByTable` and anonymous `POST /order/place` were removed (§6c).
 - QR codes generated before §6c encode `/menu/<restaurantId>/<tableId>` (some even `…:5174/menu/...`); they keep
   working until the owner presses **Regenerate QR** (Tables page flags them as "Old-style QR").
-- The socket `restaurant:<id>` room (kitchen board, admin alerts banner) has no auth; it carries order data for
-  the kitchen. Table rooms only carry "changed" pings.
+- Socket rooms (§6d.11): `restaurant:<id>` needs owner/waiter login; `kitchen:<id>` is open (order signals only,
+  same as the public kitchen endpoint); table rooms only carry "changed" pings.
 - GPS check is skipped when `NODE_ENV=development` and trusts client coordinates.
 - Client category/dish reorder sends `{menuId|categoryId, orderedIds}` but the server expects
   `{items:[{id, displayOrder}]}` (pre-existing mismatch).

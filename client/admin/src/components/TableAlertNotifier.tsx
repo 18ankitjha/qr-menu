@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
-import { ROUTES, SOCKET_EVENTS } from '../constants';
+import { ROUTES } from '../constants';
+import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh, useSocketEvent } from '../realtime';
 import { getOpenTableSessions, getStaff } from '../services/api';
 import type { IOpenTableSession, ITableAlertEvent } from '../types';
 import { isAlertSoundReady, onAlertSoundChange, playAlertSound, unlockAlertSound } from '../utils/alert-sound';
@@ -14,9 +14,10 @@ import './TableAlertNotifier.css';
 // Who hears it: waiters always; the owner only when the restaurant has no active waiters
 // (the server decides and sends it as `notify`). The owner still sees every alert in the on-page lists.
 //
-// Phones pause background tabs and drop the live connection, so a socket push can be missed.
-// We catch up from the open-tables API whenever the page comes back, the socket reconnects,
-// and every 30s while visible — a missed call still pops up (and rings) as soon as the waiter looks.
+// Phones pause background tabs and drop the live connection, so a push can be missed.
+// We catch up from the open-tables API when the page opens, the connection (re)joins and the tab comes
+// back — a missed call still pops up (and rings) as soon as the waiter looks. While the connection is
+// down we also check every 30s (fallback only).
 // ============================================================
 
 const TEXT = {
@@ -31,7 +32,8 @@ const TEXT = {
 } as const;
 
 const MAX_POPUPS = 5;
-const CATCH_UP_POLL_MS = 30000;
+/** Alerts arrive through useSocketEvent; catch-up itself isn't triggered by pushes. */
+const NO_PUSHES = [] as const;
 /** Older pending calls are left to the on-page lists instead of popping up. */
 const CATCH_UP_WINDOW_MS = 10 * 60 * 1000;
 
@@ -130,47 +132,27 @@ const TableAlertNotifier = ({ restaurantId, isOwner }: Props) => {
     } catch { /* offline — the next catch-up retries */ }
   }, [restaurantId, isOwner, announce]);
 
-  useEffect(() => {
-    const socket = io({ withCredentials: true });
-    const onConnect = () => {
-      socket.emit(SOCKET_EVENTS.JOIN_RESTAURANT_ROOM, restaurantId);
-      void catchUp();
-    };
-    const onAlert = (alert: ITableAlertEvent) => {
-      if (isOwner && alert.notify !== 'OWNER') return;
-      announce([
-        {
-          key: keyOf(alert.sessionId, alert.type),
-          type: alert.type,
-          tableNumber: alert.tableNumber,
-          by: alert.by,
-          at: alert.at,
-        },
-      ]);
-    };
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      if (!socket.connected) socket.connect();
-      void catchUp();
-    };
-    const poll = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void catchUp();
-    }, CATCH_UP_POLL_MS);
+  const onAlert = (alert: ITableAlertEvent) => {
+    if (isOwner && alert.notify !== 'OWNER') return;
+    announce([
+      {
+        key: keyOf(alert.sessionId, alert.type),
+        type: alert.type,
+        tableNumber: alert.tableNumber,
+        by: alert.by,
+        at: alert.at,
+      },
+    ]);
+  };
 
-    socket.on('connect', onConnect);
-    socket.on(SOCKET_EVENTS.TABLE_ALERT, onAlert);
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('pageshow', onVisible);
-    window.addEventListener('online', onVisible);
-    return () => {
-      window.clearInterval(poll);
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('pageshow', onVisible);
-      window.removeEventListener('online', onVisible);
-      socket.emit(SOCKET_EVENTS.LEAVE_RESTAURANT_ROOM, restaurantId);
-      socket.disconnect();
-    };
-  }, [restaurantId, isOwner, announce, catchUp]);
+  // Live: the push rings at once. Catch-up runs on open, on every (re)join and when the tab comes back;
+  // the timer only runs while the live connection is down.
+  useSocketEvent(RESTAURANT_EVENTS.TABLE_ALERT, onAlert);
+  useLiveRefresh(catchUp, {
+    room: restaurantRoom(restaurantId),
+    events: NO_PUSHES,
+    fallbackMs: FALLBACK_POLL_MS.ALERTS,
+  });
 
   const dismiss = (key: string) => setPopups((prev) => prev.filter((p) => p.key !== key));
 

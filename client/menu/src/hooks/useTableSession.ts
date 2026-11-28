@@ -132,7 +132,7 @@ export const useTableSession = (
   }, [track]);
 
   // Live only where it matters (Cart / Orders). On the Menu tab nothing polls or listens; each add/change
-  // still returns the fresh table view, and opening Cart/Orders refetches at once (socket connect → sync).
+  // still returns the fresh table view, and opening Cart/Orders refetches at once (then live pushes).
   useTableSync(session && live ? tableId : undefined, refresh);
 
   /** Run a table action; on success its response (the fresh table view) replaces the state. */

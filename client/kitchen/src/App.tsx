@@ -1,18 +1,18 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { io, Socket } from 'socket.io-client';
 import {
   API_ENDPOINTS,
-  SOCKET_URL,
-  SOCKET_EVENTS,
   ORDER_STATUS,
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,
   STATUS_COLUMNS,
   MESSAGES,
 } from './constants';
+import { FALLBACK_POLL_MS, KITCHEN_EVENTS, kitchenRoom, useLiveRefresh, useSocketEvent } from './realtime';
 import type { IOrder, IApiResponse } from './types';
 import './index.css';
+
+const ORDER_PUSHES = [KITCHEN_EVENTS.NEW_ORDER, KITCHEN_EVENTS.ORDER_STATUS_UPDATED] as const;
 
 // ============================================================
 // Kitchen Display — Read-only, real-time order board
@@ -21,7 +21,6 @@ import './index.css';
 const App = () => {
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const socketRef = useRef<Socket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const restaurantId = useMemo(() => {
@@ -41,36 +40,13 @@ const App = () => {
     finally { setLoading(false); }
   }, [restaurantId]);
 
-  // Socket.IO connection
-  useEffect(() => {
-    if (!restaurantId) return;
-
-    fetchOrders();
-
-    const socket = io(SOCKET_URL, { transports: ['websocket'] });
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      socket.emit(SOCKET_EVENTS.JOIN_RESTAURANT_ROOM, restaurantId);
-    });
-
-    socket.on(SOCKET_EVENTS.NEW_ORDER, () => {
-      fetchOrders();
-      playNotification();
-    });
-
-    socket.on(SOCKET_EVENTS.ORDER_STATUS_UPDATED, () => {
-      fetchOrders();
-    });
-
-    // Fallback polling every 15s
-    const interval = setInterval(fetchOrders, 15000);
-
-    return () => {
-      socket.disconnect();
-      clearInterval(interval);
-    };
-  }, [restaurantId, fetchOrders]);
+  // Live board: refetch on order pushes (chime for new ones); polls only while the connection is down
+  const live = useLiveRefresh(fetchOrders, {
+    room: kitchenRoom(restaurantId || undefined),
+    events: ORDER_PUSHES,
+    fallbackMs: FALLBACK_POLL_MS,
+  });
+  useSocketEvent(KITCHEN_EVENTS.NEW_ORDER, () => playNotification(), !!restaurantId);
 
   const playNotification = () => {
     try {
@@ -135,6 +111,9 @@ const App = () => {
           <span className="kitchen-subtitle">{MESSAGES.SUBTITLE}</span>
         </div>
         <div className="kitchen-clock">
+          <span className={`kitchen-live ${live ? 'kitchen-live--on' : ''}`} title={live ? MESSAGES.LIVE_HINT : MESSAGES.OFFLINE_HINT}>
+            {live ? MESSAGES.LIVE : MESSAGES.OFFLINE}
+          </span>
           <Clock />
         </div>
       </header>

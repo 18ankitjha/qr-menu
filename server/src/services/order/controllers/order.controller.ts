@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { SUCCESS_MESSAGES } from '../../../config/constants';
 import { sendSuccess } from '../../../utils/response.util';
 import { asyncHandler } from '../../../middlewares/error.middleware';
-import { emitNewOrder, emitOrderStatusUpdate, emitTableUpdated } from '../../realtime/socket/kitchen.socket';
+import { OrderPublisher } from '../../realtime';
 import * as OrderDM from '../dm/order.dm';
 import { IOrderFilters } from '../interfaces/order.interface';
 import { ORDER_MESSAGES } from '../constants/order.constants';
@@ -26,9 +26,8 @@ export const placeOrderByStaff = asyncHandler(async (req: Request, res: Response
     },
   });
 
-  emitNewOrder(order.restaurantId.toString(), order);
-  // Diners at the table see the waiter's order live
-  emitTableUpdated(order.tableId.toString());
+  // Staff, kitchen and the diners at the table all see the waiter's order live
+  OrderPublisher.orderPlaced(order);
 
   sendSuccess(res, order, ORDER_MESSAGES.STAFF_ORDER_PLACED(order.tableNumber), 201);
 });
@@ -67,10 +66,7 @@ export const setStatus = asyncHandler(async (req: Request, res: Response) => {
   const { status } = req.body;
   const order = await OrderDM.updateOrderStatus(orderId, status);
 
-  if (order) {
-    emitOrderStatusUpdate(order.restaurantId.toString(), order._id.toString(), status);
-    emitTableUpdated(order.tableId.toString());
-  }
+  if (order) OrderPublisher.orderChanged(order);
 
   sendSuccess(res, order, SUCCESS_MESSAGES.ORDER_STATUS_UPDATED);
 });
@@ -90,8 +86,7 @@ export const updateItems = asyncHandler(async (req: Request, res: Response) => {
   });
 
   // The kitchen board refetches on any order update; diners see the new items live
-  emitOrderStatusUpdate(order.restaurantId.toString(), order._id.toString(), order.status);
-  emitTableUpdated(order.tableId.toString());
+  OrderPublisher.orderChanged(order);
 
   sendSuccess(res, order, ORDER_MESSAGES.ORDER_UPDATED);
 });

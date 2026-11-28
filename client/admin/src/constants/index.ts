@@ -112,13 +112,6 @@ const API_ENDPOINTS = {
 } ;
 
 /** Socket.IO events from the API server (same names as server config/constants.ts). */
-const SOCKET_EVENTS = {
-  JOIN_RESTAURANT_ROOM: 'join_restaurant_room',
-  LEAVE_RESTAURANT_ROOM: 'leave_restaurant_room',
-  NEW_ORDER: 'new_order',
-  TABLE_ALERT: 'table_alert',
-} as const;
-
 const ORDER_STATUS = {
   PLACED: 'PLACED',
   CONFIRMED: 'CONFIRMED',
@@ -222,7 +215,6 @@ export {
   GOOGLE_CLIENT_ID,
   ROUTES,
   API_ENDPOINTS,
-  SOCKET_EVENTS,
   ORDER_STATUS,
   ORDER_STATUS_LABELS,
   ORDER_STATUS_COLORS,

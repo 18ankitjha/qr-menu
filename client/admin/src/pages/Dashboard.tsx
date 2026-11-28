@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES, SETUP_STEPS } from '../constants';
+import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
 import './Dashboard.css';
 
 // ============================================================
@@ -51,7 +52,7 @@ const NEXT_THINGS = [
   { route: ROUTES.ORDERS, icon: '📦', label: 'Watch orders', hint: 'Live orders, billing and payments' },
 ] as const;
 
-const APPROVAL_POLL_MS = 30_000;
+const APPROVAL_PUSHES = [RESTAURANT_EVENTS.RESTAURANT_UPDATED] as const;
 
 const Dashboard = () => {
   const { user, restaurant, menu, setup, refreshSetup } = useAuth();
@@ -64,13 +65,14 @@ const Dashboard = () => {
     refreshSetup();
   }, [refreshSetup]);
 
-  // While waiting for the super admin, check now and then so the steps unlock without a reload
+  // While waiting for the super admin: the approval push unlocks the steps at once (no reload).
+  // Polls only while the live connection is down.
   const awaitingApproval = !!setup?.awaitingApproval;
-  useEffect(() => {
-    if (!awaitingApproval) return;
-    const timer = window.setInterval(refreshSetup, APPROVAL_POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [awaitingApproval, refreshSetup]);
+  useLiveRefresh(refreshSetup, {
+    room: restaurantRoom(awaitingApproval ? restaurant?._id : undefined),
+    events: APPROVAL_PUSHES,
+    fallbackMs: FALLBACK_POLL_MS.APPROVAL,
+  });
 
   const allDone = !!setup?.isComplete;
   const completedCount = setup?.completedCount ?? 0;
