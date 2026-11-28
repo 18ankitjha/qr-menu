@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { IRestaurant, IMenu, ICategory, IDish } from '../types';
+import { readablePalette } from '../utils/theme.util';
 import './MenuPreview.css';
 
 // ============================================================
@@ -33,10 +34,16 @@ export const MenuPreview = ({ restaurant, menu, categories, onClose }: MenuPrevi
   }, [activeCategories, selectedCatId]);
 
   const { theme } = menu;
+  // Cards stay white; only text sitting on the background follows the palette
+  const pal = readablePalette(theme.backgroundColor, theme.primaryColor, theme.secondaryColor);
   const cssVars = {
     '--mp-primary': theme.primaryColor,
     '--mp-secondary': theme.secondaryColor,
     '--mp-bg': theme.backgroundColor,
+    '--mp-ink': pal.ink,
+    '--mp-ink-3': pal.ink3,
+    '--mp-on-primary': pal.onPrimary,
+    '--mp-primary-text': pal.primaryText,
   } as React.CSSProperties;
 
   useEffect(() => {

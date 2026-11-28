@@ -714,6 +714,26 @@ order. Dish details are cached 60 s (`DISH_CACHE_MS`).
   ADD / − n + on its bottom edge (no photo → button on the right).
 - **Bottom tabs:** line icons instead of emoji.
 
+### 6d.17 Readable menu colours on any background + GPS save fix
+
+- **Theme colours mean:** Primary = buttons, ADD and the selected category tab. Secondary = category headings
+  (e.g. "Burger"). Background = page colour. On admin's Customer Menu page they are labelled **Button colour**
+  (primary), **Heading colour** (secondary) and **Background colour**. Each picker has a one-line hint, a live
+  sample drawn on the chosen background (tab + ADD + Place order / "Starters" heading + dish line / text +
+  card), and a warning when the colour is hard to read there (`primaryReadable` / `accentReadable` from
+  `readablePalette`).
+- **Text follows the background:** `utils/theme.util.ts` (`readablePalette`, identical in `client/menu` and
+  `client/admin`) picks light or dark text, card, border and bottom-bar colours from the background colour.
+  The menu gets them as CSS vars (`--ink`, `--ink-2`, `--ink-3`, `--surface`, `--line`, `--tint`, `--bar`,
+  `--on-primary`, `--primary-text`, `--accent`). Primary/secondary are only used as text when they have
+  enough contrast; otherwise the normal text colour is used (dark-blue secondary on black → white headings;
+  yellow primary → dark text on the selected tab).
+- Admin Customer Menu preview redrawn to match the real menu (text tabs, heading, photo-right rows); Menu
+  Builder phone preview uses the same palette for text on the background.
+- **Update GPS fixed:** admin now sends `{gpsCoordinates:{latitude, longitude}, gpsRadiusMeters}` (was a 400
+  "gpsCoordinates Required").
+- Note: the "Menu Layout" (grid/list) setting is saved but the customer menu doesn't use it yet.
+
 ---
 
 ## 7. Decisions made
@@ -781,7 +801,6 @@ Order follows [SYSTEM_DESIGN.md §9](./SYSTEM_DESIGN.md).
 - GPS check is skipped when `NODE_ENV=development` and trusts client coordinates.
 - Client category/dish reorder sends `{menuId|categoryId, orderedIds}` but the server expects
   `{items:[{id, displayOrder}]}` (pre-existing mismatch).
-- Admin "Update GPS" sends `{latitude, longitude}` but the server expects `{gpsCoordinates:{…}}` (pre-existing).
 - Pre-existing: unused-variable TypeScript error in `client/admin` `Restaurant.tsx`;
   Mongoose "duplicate index on ownerId" warning (restaurant model declares it twice).
 - Some old cluster orders have no `tableNumber` (kitchen shows "Table #?").

@@ -2,6 +2,7 @@ import axios from 'axios';
 import { API_ENDPOINTS } from '../constants';
 import type {
   IApiResponse,
+  IGpsCoordinates,
   IProfile,
   IRestaurant,
   IBillingSettings,
@@ -62,7 +63,7 @@ const getRestaurant = (id: string) =>
 const updateRestaurant = (id: string, data: Partial<IRestaurant>) =>
   api.put<IApiResponse<IRestaurant>>(API_ENDPOINTS.RESTAURANT.UPDATE(id), data);
 
-const setRestaurantGps = (id: string, data: { latitude: number; longitude: number; gpsRadiusMeters?: number }) =>
+const setRestaurantGps = (id: string, data: { gpsCoordinates: IGpsCoordinates; gpsRadiusMeters?: number }) =>
   api.put<IApiResponse<IRestaurant>>(API_ENDPOINTS.RESTAURANT.SET_GPS(id), data);
 
 const setBillingSettings = (id: string, data: IBillingSettings) =>

@@ -68,3 +68,73 @@
 .customer-menu-section-title {
   margin: 8px 0 12px;
 }
+
+.form-hint {
+  margin: -2px 0 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.field-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+
+/* Live sample under each colour picker, drawn on the chosen background */
+.color-sample {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.color-sample--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.color-sample-tab {
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.color-sample-add {
+  padding: 5px 16px;
+  border: 1px solid;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.color-sample-btn {
+  padding: 7px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.color-sample-heading {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.form-warn {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #b45309;
+}

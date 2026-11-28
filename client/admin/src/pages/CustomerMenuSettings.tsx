@@ -5,6 +5,7 @@ import { setMenuTheme, updateMenu, getCategories, getDishes, updateRestaurant, u
 import { MESSAGES, ROUTES } from '../constants';
 import type { IMenuTheme, ICategory, IDish } from '../types';
 import { usePendingUpload } from '../hooks/usePendingUpload';
+import { readablePalette } from '../utils/theme.util';
 import './FormPage.css';
 import './CustomerMenuSettings.css';
 
@@ -38,14 +39,34 @@ const PAGE = {
   },
   LOOK_TITLE: 'Look & feel',
   FIELDS: {
-    PRIMARY: 'Primary Color',
-    SECONDARY: 'Secondary Color',
-    BACKGROUND: 'Background Color',
+    PRIMARY: 'Button colour',
+    SECONDARY: 'Heading colour',
+    BACKGROUND: 'Background colour',
     BG_IMAGE: 'Cover Image',
     FONT: 'Font Family',
     LAYOUT: 'Menu Layout',
     LOGO: 'Restaurant Logo',
   },
+  FIELD_TAGS: { PRIMARY: 'primary', SECONDARY: 'secondary' },
+  HINTS: {
+    PRIMARY: 'Used for the selected category tab, the ADD button and the Place order button.',
+    SECONDARY: 'Used for category titles on the menu, like "Starters" or "Burger".',
+    BACKGROUND: 'The page colour. Text and cards turn light or dark automatically so they stay readable.',
+  },
+  SAMPLE: {
+    TAB: 'Starters',
+    ADD: 'ADD',
+    ORDER: 'Place order',
+    HEADING: 'Starters',
+    DISH: 'Paneer Tikka · ₹280',
+    TEXT: 'Dish names and prices',
+    MUTED: 'Descriptions',
+    CARD: 'Card',
+  },
+  WARN_PRIMARY: (dark: boolean) =>
+    `Too ${dark ? 'dark' : 'light'} to read on this background, so the ADD text shows in ${dark ? 'white' : 'black'}. Tabs and buttons still use it.`,
+  WARN_SECONDARY: (dark: boolean) =>
+    `Too ${dark ? 'dark' : 'light'} to read on this background, so customers see headings in ${dark ? 'white' : 'black'}. Pick a ${dark ? 'lighter' : 'darker'} colour.`,
   FONTS: ['Inter', 'Roboto', 'Outfit', 'Poppins', 'Lato', 'Nunito', 'Montserrat'],
   LAYOUTS: { grid: 'Grid View', list: 'List View' },
   PREVIEW_TITLE: 'Preview',
@@ -191,6 +212,11 @@ const CustomerMenuSettings = () => {
 
   const selectedPreviewCat = previewCategories.find((c) => c._id === selectedPreviewCatId);
   const previewDishes = selectedPreviewCat ? selectedPreviewCat.dishes.filter((d) => d.isAvailable) : [];
+  const pal = readablePalette(theme.backgroundColor, theme.primaryColor, theme.secondaryColor);
+  const previewAddStyle: React.CSSProperties = {
+    flexShrink: 0, padding: '6px 18px', borderRadius: 8, border: `1px solid ${pal.line}`, background: pal.surface,
+    color: pal.primaryText, fontSize: 12, fontWeight: 800, boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
+  };
 
   return (
     <div className="form-page">
@@ -259,28 +285,51 @@ const CustomerMenuSettings = () => {
       </div>
 
       <form onSubmit={handleSave} className="form-card">
-        {/* Colors */}
+        {/* Colours — each picker shows a live sample of where the colour appears */}
         <div className="form-group">
-          <label className="form-label">{PAGE.FIELDS.PRIMARY}</label>
+          <label className="form-label">
+            {PAGE.FIELDS.PRIMARY} <span className="field-tag">{PAGE.FIELD_TAGS.PRIMARY}</span>
+          </label>
+          <p className="form-hint">{PAGE.HINTS.PRIMARY}</p>
           <div className="color-input-row">
             <input type="color" className="color-swatch" value={theme.primaryColor} onChange={(e) => updateField('primaryColor', e.target.value)} />
             <input className="form-input" value={theme.primaryColor} onChange={(e) => updateField('primaryColor', e.target.value)} />
           </div>
+          <div className="color-sample" style={{ background: theme.backgroundColor }}>
+            <span className="color-sample-tab" style={{ background: theme.primaryColor, color: pal.onPrimary }}>{PAGE.SAMPLE.TAB}</span>
+            <span className="color-sample-add" style={{ background: pal.surface, color: pal.primaryText, borderColor: pal.line }}>{PAGE.SAMPLE.ADD}</span>
+            <span className="color-sample-btn" style={{ background: theme.primaryColor, color: pal.onPrimary }}>{PAGE.SAMPLE.ORDER}</span>
+          </div>
+          {!pal.primaryReadable && <p className="form-warn">⚠ {PAGE.WARN_PRIMARY(pal.dark)}</p>}
         </div>
 
         <div className="form-group">
-          <label className="form-label">{PAGE.FIELDS.SECONDARY}</label>
+          <label className="form-label">
+            {PAGE.FIELDS.SECONDARY} <span className="field-tag">{PAGE.FIELD_TAGS.SECONDARY}</span>
+          </label>
+          <p className="form-hint">{PAGE.HINTS.SECONDARY}</p>
           <div className="color-input-row">
             <input type="color" className="color-swatch" value={theme.secondaryColor} onChange={(e) => updateField('secondaryColor', e.target.value)} />
             <input className="form-input" value={theme.secondaryColor} onChange={(e) => updateField('secondaryColor', e.target.value)} />
           </div>
+          <div className="color-sample color-sample--stack" style={{ background: theme.backgroundColor }}>
+            <span className="color-sample-heading" style={{ color: pal.accent }}>{PAGE.SAMPLE.HEADING}</span>
+            <span style={{ color: pal.ink, fontSize: 14 }}>{PAGE.SAMPLE.DISH}</span>
+          </div>
+          {!pal.accentReadable && <p className="form-warn">⚠ {PAGE.WARN_SECONDARY(pal.dark)}</p>}
         </div>
 
         <div className="form-group">
           <label className="form-label">{PAGE.FIELDS.BACKGROUND}</label>
+          <p className="form-hint">{PAGE.HINTS.BACKGROUND}</p>
           <div className="color-input-row">
             <input type="color" className="color-swatch" value={theme.backgroundColor} onChange={(e) => updateField('backgroundColor', e.target.value)} />
             <input className="form-input" value={theme.backgroundColor} onChange={(e) => updateField('backgroundColor', e.target.value)} />
+          </div>
+          <div className="color-sample" style={{ background: theme.backgroundColor }}>
+            <span style={{ color: pal.ink, fontWeight: 600, fontSize: 14 }}>{PAGE.SAMPLE.TEXT}</span>
+            <span style={{ color: pal.ink2, fontSize: 13 }}>{PAGE.SAMPLE.MUTED}</span>
+            <span className="color-sample-add" style={{ background: pal.surface, color: pal.ink, borderColor: pal.line }}>{PAGE.SAMPLE.CARD}</span>
           </div>
         </div>
 
@@ -339,12 +388,13 @@ const CustomerMenuSettings = () => {
         </button>
       </form>
 
-      {/* Live Theme Preview with Real Data */}
+      {/* Live preview — same colours and layout as the customer menu */}
       <div className="form-card">
         <h2 className="card-title">{PAGE.PREVIEW_TITLE}</h2>
         <p className="card-subtitle" style={{ marginBottom: 16 }}>{PAGE.PREVIEW_DESC}</p>
         <div style={{
           background: theme.backgroundColor,
+          color: pal.ink,
           fontFamily: theme.fontFamily,
           borderRadius: 12,
           padding: 20,
@@ -370,94 +420,62 @@ const CustomerMenuSettings = () => {
             {restaurant?.logoUrl && (
               <img src={restaurant.logoUrl} alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 8, background: '#fff' }} />
             )}
-            <div style={{ fontSize: 20, fontWeight: 700, color: theme.backgroundImageUrl ? '#fff' : '#111827' }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: theme.backgroundImageUrl ? '#fff' : pal.ink }}>
               {restaurant?.name || 'Your Restaurant'}
             </div>
           </div>
 
-          {/* Category tabs — real data */}
-          {previewCategories.length > 0 ? (
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-              {previewCategories.map((cat) => (
+          {/* Category tabs (primary colour = selected tab) */}
+          <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4 }}>
+            {(previewCategories.length > 0 ? previewCategories : [{ _id: '', name: 'Starters' }, { _id: '-', name: 'Mains' }]).map((cat) => {
+              const selected = previewCategories.length > 0 ? selectedPreviewCatId === cat._id : cat._id === '';
+              return (
                 <div
                   key={cat._id}
-                  onClick={() => setSelectedPreviewCatId(cat._id)}
+                  onClick={() => cat._id && setSelectedPreviewCatId(cat._id)}
                   style={{
-                    padding: '6px 16px',
-                    background: selectedPreviewCatId === cat._id ? theme.primaryColor : 'rgba(255,255,255,0.85)',
-                    color: selectedPreviewCatId === cat._id ? '#fff' : theme.primaryColor,
-                    border: selectedPreviewCatId === cat._id ? 'none' : `1.5px solid ${theme.primaryColor}`,
-                    borderRadius: 20,
-                    fontSize: 12,
+                    padding: '6px 14px',
+                    background: selected ? theme.primaryColor : 'transparent',
+                    color: selected ? pal.onPrimary : pal.ink2,
+                    borderRadius: 999,
+                    fontSize: 13,
                     fontWeight: 600,
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
-                    transition: 'all 0.2s ease',
+                    textTransform: 'capitalize',
                   }}
                 >
                   {cat.name}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ padding: '6px 16px', background: theme.primaryColor, color: '#fff', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Starters</div>
-              <div style={{ padding: '6px 16px', border: `1.5px solid ${theme.primaryColor}`, color: theme.primaryColor, borderRadius: 20, fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,0.85)' }}>Mains</div>
-            </div>
-          )}
+              );
+            })}
+          </div>
 
-          {/* Dish cards — real data with images */}
-          {previewDishes.length > 0 ? (
-            <div style={{
-              display: theme.layout === 'grid' ? 'grid' : 'flex',
-              gridTemplateColumns: theme.layout === 'grid' ? 'repeat(2, 1fr)' : undefined,
-              flexDirection: theme.layout === 'list' ? 'column' : undefined,
-              gap: 10,
-            }}>
-              {previewDishes.slice(0, 4).map((dish) => (
-                <div key={dish._id} style={{
-                  background: 'rgba(255,255,255,0.92)',
-                  border: '1px solid #f0f0f0',
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                  display: theme.layout === 'list' ? 'flex' : 'block',
-                  gap: theme.layout === 'list' ? 12 : 0,
-                  alignItems: theme.layout === 'list' ? 'center' : undefined,
-                }}>
-                  {dish.imageUrl && (
-                    <img src={dish.imageUrl} alt={dish.name} style={{
-                      width: theme.layout === 'list' ? 72 : '100%',
-                      height: theme.layout === 'list' ? 72 : 90,
-                      objectFit: 'cover',
-                      borderRadius: theme.layout === 'list' ? '12px 0 0 12px' : undefined,
-                      flexShrink: 0,
-                    }} />
-                  )}
-                  <div style={{ padding: theme.layout === 'list' ? '8px 12px' : 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flex: 1 }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a2e', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {dish.name}
-                        <span style={{ width: 10, height: 10, borderRadius: 2, border: `2px solid ${dish.isVeg ? '#10b981' : '#ef4444'}`, display: 'inline-block', flexShrink: 0 }} />
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: theme.primaryColor, marginTop: 2 }}>₹{dish.price}</div>
-                    </div>
-                    <div style={{ padding: '5px 12px', border: `2px solid ${theme.primaryColor}`, borderRadius: 8, color: theme.primaryColor, fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.9)' }}>Add</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid #f0f0f0', borderRadius: 12, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#1a1a2e' }}>Sample Dish</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: theme.primaryColor, marginTop: 4 }}>₹199</div>
+          {/* Category heading (secondary colour) */}
+          <div style={{ fontSize: 17, fontWeight: 700, color: pal.accent, textTransform: 'capitalize' }}>
+            {selectedPreviewCat?.name ?? 'Starters'}
+          </div>
+
+          {/* Dish rows — details left, photo right with ADD on its edge */}
+          {(previewDishes.length > 0 ? previewDishes.slice(0, 3) : [{ _id: 'sample', name: 'Sample Dish', price: 199, isVeg: true, imageUrl: '' }]).map((dish, i) => (
+            <div key={dish._id} style={{ display: 'flex', gap: 14, padding: '10px 0', borderTop: i ? `1px dashed ${pal.line}` : 'none' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${dish.isVeg ? '#10b981' : '#ef4444'}`, display: 'inline-block' }} />
+                <div style={{ fontSize: 15, fontWeight: 600, color: pal.ink, textTransform: 'capitalize' }}>{dish.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: pal.ink }}>₹{dish.price}</div>
               </div>
-              <div style={{ padding: '7px 16px', border: `2px solid ${theme.primaryColor}`, borderRadius: 8, color: theme.primaryColor, fontSize: 12, fontWeight: 700 }}>Add</div>
+              {dish.imageUrl ? (
+                <div style={{ position: 'relative', width: 96, paddingBottom: 14, flexShrink: 0 }}>
+                  <img src={dish.imageUrl} alt={dish.name} style={{ display: 'block', width: 96, height: 80, objectFit: 'cover', borderRadius: 12 }} />
+                  <div style={{ ...previewAddStyle, position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)' }}>ADD</div>
+                </div>
+              ) : (
+                <div style={{ ...previewAddStyle, alignSelf: 'center' }}>ADD</div>
+              )}
             </div>
-          )}
+          ))}
 
-          <p style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
+          <p style={{ fontSize: 11, color: pal.ink3, textAlign: 'center' }}>
             Full preview available in Menu Builder →
           </p>
         </div>

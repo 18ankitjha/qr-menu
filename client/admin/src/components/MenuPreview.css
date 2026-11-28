@@ -115,7 +115,7 @@
   overflow-x: hidden;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  color: #1a1a2e;
+  color: var(--mp-ink, #1a1a2e);
   padding-bottom: 20px;
 }
 
@@ -142,7 +142,7 @@
 .mp-restaurant-name {
   font-size: 20px;
   font-weight: 700;
-  color: var(--mp-primary, #FF6B35);
+  color: var(--mp-primary-text, var(--mp-primary, #FF6B35));
   letter-spacing: -0.3px;
 }
 
@@ -180,7 +180,7 @@
 .mp-cat-tab--active,
 .mp-cat-tab--active:hover {
   background: var(--mp-primary, #FF6B35);
-  color: #fff;
+  color: var(--mp-on-primary, #fff);
   border-color: var(--mp-primary, #FF6B35);
 }
 
@@ -362,6 +362,6 @@
 .mp-empty {
   text-align: center;
   padding: 32px 16px;
-  color: #9ca3af;
+  color: var(--mp-ink-3, #9ca3af);
   font-size: 13px;
 }

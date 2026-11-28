@@ -1,9 +1,22 @@
 /* ============================================================
    Customer Menu — Global Styles (themed via CSS vars)
-   --primary / --secondary / --bg come from the menu's settings; --bg-image is the header cover photo.
+   --primary / --bg come from the menu's settings; --accent is the secondary colour (category headings).
+   --ink*, --surface, --line are derived from the background so text stays readable; --bg-image is the header cover photo.
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+
+/* Readable defaults; App.tsx overrides them from the background colour (utils/theme.util.ts) */
+:root {
+  --ink: #111827;
+  --ink-2: #6b7280;
+  --ink-3: #9ca3af;
+  --surface: #ffffff;
+  --line: #e5e7eb;
+  --tint: rgba(0, 0, 0, 0.05);
+  --bar: rgba(255, 255, 255, 0.96);
+  --on-primary: #ffffff;
+}
 
 /* ------- Reset ------- */
 
@@ -34,7 +47,7 @@ button {
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg, #ffffff);
-  color: #111827;
+  color: var(--ink);
   padding-bottom: 84px;
 }
 
@@ -52,7 +65,7 @@ button {
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  color: #6b7280;
+  color: var(--ink-2);
   padding: 24px;
   text-align: center;
 }
@@ -107,7 +120,7 @@ button {
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.3px;
-  color: #111827;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -117,7 +130,7 @@ button {
   margin-top: 2px;
   font-size: 13px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--ink-2);
 }
 
 .menu-header--cover .restaurant-name {
@@ -137,8 +150,8 @@ button {
   padding: 0 12px;
   border: 1px solid var(--primary, #FF6B35);
   border-radius: 999px;
-  background: #fff;
-  color: var(--primary, #FF6B35);
+  background: var(--surface);
+  color: var(--primary-text, var(--primary, #FF6B35));
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -146,8 +159,8 @@ button {
 }
 
 .waiter-btn--called {
-  border-color: #e5e7eb;
-  color: #6b7280;
+  border-color: var(--line);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -165,7 +178,7 @@ button {
   gap: 8px;
   margin-top: 12px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--ink-2);
 }
 
 .menu-header--cover .members-row,
@@ -183,7 +196,7 @@ button {
   height: 24px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
 }
 
 .avatar-stack .member-avatar + .member-avatar {
@@ -195,7 +208,7 @@ button {
   align-items: center;
   justify-content: center;
   background: var(--primary, #FF6B35);
-  color: #fff;
+  color: var(--on-primary, #fff);
   font-weight: 700;
   font-size: 10px;
 }
@@ -212,7 +225,7 @@ button {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -244,8 +257,8 @@ button {
   height: 40px;
   padding: 0 8px 0 12px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.05);
-  color: #9ca3af;
+  background: var(--tint);
+  color: var(--ink-3);
 }
 
 .search-input {
@@ -254,13 +267,13 @@ button {
   border: none;
   outline: none;
   background: transparent;
-  color: #111827;
+  color: var(--ink);
   font-family: inherit;
   font-size: 16px; /* 16px stops iOS zooming in */
 }
 
 .search-input::placeholder {
-  color: #9ca3af;
+  color: var(--ink-3);
   font-size: 14px;
 }
 
@@ -270,8 +283,8 @@ button {
   flex-shrink: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.1);
-  color: #4b5563;
+  background: var(--tint);
+  color: var(--ink-2);
   font-size: 10px;
   cursor: pointer;
 }
@@ -283,12 +296,12 @@ button {
   gap: 6px;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface);
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--ink);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -327,7 +340,7 @@ button {
   background: transparent;
   font-size: 14px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--ink-2);
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
@@ -341,13 +354,13 @@ button {
 
 .cat-tab--active {
   background: var(--primary, #FF6B35);
-  color: #fff;
+  color: var(--on-primary, #fff);
 }
 
 /* ------- Category sections ------- */
 
 .menu-section + .menu-section {
-  border-top: 8px solid rgba(0, 0, 0, 0.035);
+  border-top: 8px solid var(--tint);
 }
 
 .menu-section-head {
@@ -367,20 +380,20 @@ button {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.2px;
-  color: #111827;
+  color: var(--accent, var(--ink));
 }
 
 .menu-section-count {
   font-size: 13px;
   font-weight: 600;
-  color: #9ca3af;
+  color: var(--ink-3);
 }
 
 .menu-section-chevron {
   margin-left: auto;
   align-self: center;
   display: inline-flex;
-  color: #9ca3af;
+  color: var(--ink-3);
   transform: rotate(-90deg);
   transition: transform 0.2s ease;
 }
@@ -396,7 +409,7 @@ button {
 .menu-section-desc {
   padding-top: 2px;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--ink-2);
 }
 
 .dish-list {
@@ -409,7 +422,7 @@ button {
   display: flex;
   gap: 16px;
   padding: 18px 0;
-  border-bottom: 1px dashed #e5e7eb;
+  border-bottom: 1px dashed var(--line);
 }
 
 .dish-card:last-child {
@@ -432,7 +445,7 @@ button {
   font-size: 16px;
   font-weight: 600;
   line-height: 1.3;
-  color: #111827;
+  color: var(--ink);
 }
 
 .dish-price {
@@ -440,14 +453,14 @@ button {
   margin-top: 2px;
   font-size: 15px;
   font-weight: 600;
-  color: #111827;
+  color: var(--ink);
 }
 
 .dish-desc {
   margin-top: 6px;
   font-size: 13px;
   line-height: 1.45;
-  color: #6b7280;
+  color: var(--ink-2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -457,14 +470,14 @@ button {
 .dish-meta {
   margin-top: 4px;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--ink-3);
 }
 
 .dish-others {
   margin-top: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--primary, #FF6B35);
+  color: var(--primary-text, var(--primary, #FF6B35));
 }
 
 .tag {
@@ -529,7 +542,7 @@ button {
   height: 110px;
   border-radius: 14px;
   object-fit: cover;
-  background: #f3f4f6;
+  background: var(--tint);
 }
 
 .dish-media .dish-action {
@@ -550,10 +563,10 @@ button {
 .qty-control {
   height: 36px;
   min-width: 96px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fff;
-  color: var(--primary, #FF6B35);
+  background: var(--surface);
+  color: var(--primary-text, var(--primary, #FF6B35));
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 
@@ -584,14 +597,14 @@ button {
   height: 100%;
   background: transparent;
   border: none;
-  color: var(--primary, #FF6B35);
+  color: var(--primary-text, var(--primary, #FF6B35));
   font-size: 18px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .qty-btn:active {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--tint);
 }
 
 .qty-value {
@@ -599,7 +612,7 @@ button {
   text-align: center;
   font-size: 14px;
   font-weight: 700;
-  color: var(--primary, #FF6B35);
+  color: var(--primary-text, var(--primary, #FF6B35));
 }
 
 /* ------- Cards / panels ------- */
@@ -610,8 +623,8 @@ button {
 .panel {
   margin: 0 16px 16px;
   padding: 16px;
-  background: #fff;
-  border: 1px solid #eef0f3;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 16px;
 }
 
@@ -624,7 +637,7 @@ button {
 
 .signin-card p {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--ink-2);
   margin-top: 4px;
 }
 
@@ -654,7 +667,7 @@ button {
   align-items: center;
   text-align: center;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--ink-2);
 }
 
 .menu-error-text {
@@ -664,7 +677,7 @@ button {
 .panel-note,
 .empty-note {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--ink-2);
 }
 
 .empty-note {
@@ -678,7 +691,7 @@ button {
 
 .view-only-card strong,
 .location-card strong {
-  color: #111827;
+  color: var(--ink);
   font-size: 15px;
 }
 
@@ -701,13 +714,13 @@ button {
 .btn-primary {
   background: var(--primary, #FF6B35);
   border: none;
-  color: #fff;
+  color: var(--on-primary, #fff);
 }
 
 .btn-secondary {
-  background: #fff;
+  background: var(--surface);
   border: 1.5px solid var(--primary, #FF6B35);
-  color: var(--primary, #FF6B35);
+  color: var(--primary-text, var(--primary, #FF6B35));
 }
 
 .btn-primary:disabled,
@@ -729,7 +742,7 @@ button {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #9ca3af;
+  color: var(--ink-3);
   margin-top: 8px;
 }
 
@@ -739,7 +752,7 @@ button {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--line);
 }
 
 .cart-item-info {
@@ -756,27 +769,29 @@ button {
 .cart-item-notes {
   display: block;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--ink-2);
 }
 
 .cart-item-price {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--ink-2);
 }
 
 .cart-input {
   width: 100%;
   margin-top: 12px;
   padding: 12px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--line);
   border-radius: 10px;
   font-size: 16px;
   font-family: inherit;
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .cart-input:focus {
   outline: none;
-  border-color: var(--primary, #FF6B35);
+  border-color: var(--primary-text, var(--primary, #FF6B35));
 }
 
 .cart-textarea {
@@ -796,7 +811,7 @@ button {
 .cart-total-amount {
   font-size: 20px;
   font-weight: 800;
-  color: #111827;
+  color: var(--ink);
 }
 
 /* ------- Orders ------- */
@@ -807,7 +822,7 @@ button {
 
 .order-card {
   padding: 12px 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--line);
 }
 
 .order-card:last-child {
@@ -823,7 +838,7 @@ button {
 
 .order-time {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--ink-3);
 }
 
 .order-item {
@@ -836,13 +851,13 @@ button {
 
 .order-item-by {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--ink-3);
   white-space: nowrap;
 }
 
 .order-note {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--ink-2);
   margin-top: 4px;
 }
 
@@ -904,7 +919,7 @@ button {
 
 .bill-number {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--ink-3);
   font-weight: 600;
 }
 
@@ -916,23 +931,23 @@ button {
 }
 
 .bill-row--sub {
-  color: #6b7280;
+  color: var(--ink-2);
   font-size: 13px;
 }
 
 .bill-row--sub:first-of-type {
-  border-top: 1px dashed #e5e7eb;
+  border-top: 1px dashed var(--line);
   margin-top: 6px;
   padding-top: 8px;
 }
 
 .bill-row--total {
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--line);
   margin-top: 6px;
   padding-top: 8px;
   font-size: 17px;
   font-weight: 800;
-  color: #111827;
+  color: var(--ink);
 }
 
 .bill-status {
@@ -969,7 +984,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #374151;
+  color: var(--ink);
 }
 
 /* ------- Bottom tabs ------- */
@@ -980,10 +995,10 @@ button {
   right: 0;
   bottom: 0;
   display: grid;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--bar);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  border-top: 1px solid #eef0f3;
+  border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 50;
 }
@@ -998,7 +1013,7 @@ button {
   border: none;
   font-size: 11px;
   font-weight: 600;
-  color: #9ca3af;
+  color: var(--ink-3);
   cursor: pointer;
 }
 
@@ -1008,7 +1023,7 @@ button {
 }
 
 .bottom-tab--active {
-  color: var(--primary, #FF6B35);
+  color: var(--primary-text, var(--primary, #FF6B35));
 }
 
 .bottom-tab-badge {
@@ -1018,10 +1033,10 @@ button {
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border: 2px solid #fff;
+  border: 2px solid var(--surface);
   border-radius: 9px;
   background: var(--primary, #FF6B35);
-  color: #fff;
+  color: var(--on-primary, #fff);
   font-size: 10px;
   font-weight: 700;
   line-height: 14px;
@@ -1038,8 +1053,8 @@ button {
   max-width: calc(100% - 32px);
   padding: 12px 18px;
   border-radius: 12px;
-  background: #111827;
-  color: #fff;
+  background: var(--ink);
+  color: var(--surface);
   font-size: 14px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   z-index: 200;
@@ -1048,6 +1063,7 @@ button {
 
 .toast--error {
   background: #b91c1c;
+  color: #fff;
 }
 
 @keyframes toast-in {
@@ -1090,7 +1106,7 @@ button {
   .bottom-tabs {
     max-width: 960px;
     margin: 0 auto;
-    border: 1px solid #eef0f3;
+    border: 1px solid var(--line);
     border-bottom: none;
     border-radius: 16px 16px 0 0;
   }

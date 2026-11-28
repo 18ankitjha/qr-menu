@@ -117,8 +117,10 @@ const Restaurant = () => {
     setMessage('');
     try {
       const { data } = await setRestaurantGps(restaurant._id, {
-        latitude: parseFloat(gpsData.latitude),
-        longitude: parseFloat(gpsData.longitude),
+        gpsCoordinates: {
+          latitude: parseFloat(gpsData.latitude),
+          longitude: parseFloat(gpsData.longitude),
+        },
         gpsRadiusMeters: parseInt(gpsData.gpsRadiusMeters),
       });
       setRestaurant(data.data);
