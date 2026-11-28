@@ -20,6 +20,8 @@ export interface IBillSignal {
 export interface ITableSignal {
   tableId: string;
   at: number;
+  /** Customer id of the diner who made the change — their own phone already has the result and skips the refetch. */
+  by?: string;
 }
 
 export interface IRestaurantSignal {

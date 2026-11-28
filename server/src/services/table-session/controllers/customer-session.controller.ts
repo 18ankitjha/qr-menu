@@ -63,7 +63,7 @@ export const join = asyncHandler(async (req: Request, res: Response) => {
   const diner: IDiner = { ...dinerOf(req), profilePicture: customer?.profilePicture };
   const session = await TableSessionDM.joinTable(table, diner);
 
-  TablePublisher.tableChanged(table.restaurantId.toString(), table._id.toString());
+  TablePublisher.tableChanged(table.restaurantId.toString(), table._id.toString(), diner.customerId);
   await sendView(res, session, diner.customerId, TABLE_SESSION_MESSAGES.JOINED);
 });
 
@@ -77,7 +77,7 @@ export const getSession = asyncHandler(async (req: Request, res: Response) => {
 const afterCartChange = async (req: Request, res: Response) => {
   const customerId = req.customer!.customerId;
   const session = await TableSessionDM.getSessionForMember(sessionId(req), customerId);
-  TablePublisher.cartChanged(session.tableId.toString());
+  TablePublisher.cartChanged(session.tableId.toString(), customerId);
   await sendView(res, session, customerId, TABLE_SESSION_MESSAGES.CART_UPDATED);
 };
 
@@ -119,7 +119,7 @@ export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
     req.body.cartVersion,
     req.body.specialInstructions
   );
-  OrderPublisher.orderPlaced(order);
+  OrderPublisher.orderPlaced(order, diner.customerId);
 
   const session = await TableSessionDM.getSessionForMember(sessionId(req), diner.customerId);
   await sendView(res, session, diner.customerId, TABLE_SESSION_MESSAGES.ORDER_PLACED, 201);
@@ -139,7 +139,7 @@ const raise = (type: TableAlertType, message: string) =>
       tableNumber: session.tableNumber,
       by: diner.name,
       at: new Date(),
-    });
+    }, diner.customerId);
     await sendView(res, session, diner.customerId, message);
   });
 

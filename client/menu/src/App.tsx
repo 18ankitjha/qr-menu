@@ -9,6 +9,7 @@ import { useCustomer } from './hooks/useCustomer';
 import { useTableSession } from './hooks/useTableSession';
 import { myPlainLine, useCartDraft } from './hooks/useCartDraft';
 import { useCooldown } from './hooks/useCooldown';
+import { isTempLine, withMyPicks, withQuantity } from './utils/cart.util';
 import Header from './components/Header';
 import SignInCard from './components/SignInCard';
 import LocationCard from './components/LocationCard';
@@ -32,7 +33,7 @@ const App = () => {
   const [loadError, setLoadError] = useState(link ? '' : MESSAGES.ERROR_BAD_LINK);
   const { customer, signOut } = useCustomer();
   const [tab, setTab] = useState<TabId>('menu');
-  const table = useTableSession(link, menu?.table._id, !!customer, tab !== 'menu');
+  const table = useTableSession(link, menu?.table._id, !!customer, tab !== 'menu', customer?._id);
   const { session, run, refresh } = table;
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
@@ -73,32 +74,10 @@ const App = () => {
   // ---------------- menu picks (local) → table cart (one call when the Cart tab opens)
 
   const draft = useCartDraft(session);
-  const pendingRef = useRef(draft.pending);
-  pendingRef.current = draft.pending;
-  const orderingOn = menu?.menu.customerOrderingEnabled !== false;
-  const onCartTab = orderingOn && tab === 'cart';
-  const openSessionId = session?.status === 'OPEN' ? session._id : undefined;
-  const { clear: clearDraft } = draft;
-
-  // Runs after useTableSession's own refetch for the tab, so this newer response wins.
-  useEffect(() => {
-    const items = pendingRef.current;
-    if (!onCartTab || !openSessionId || items.length === 0) return;
-    void (async () => {
-      setBusy(true);
-      try {
-        const next = await run((id) => TableSessionApi.setMyCart(id, items));
-        clearDraft();
-        const leftOut = items.some((i) => i.quantity > 0 && myPlainLine(next.cart, i.dishId)?.quantity !== i.quantity);
-        if (leftOut) notify(MESSAGES.SOME_UNAVAILABLE, true);
-      } catch (e) {
-        notify(messageOf(e), true);
-        await refresh();
-      } finally {
-        setBusy(false);
-      }
-    })();
-  }, [onCartTab, openSessionId, run, refresh, notify, clearDraft]);
+  const dishes = useMemo(
+    () => new Map((menu?.categories ?? []).flatMap((c) => c.dishes.map((d) => [d._id, d] as const))),
+    [menu]
+  );
 
   const waiterCooldown = useCooldown(session?.waiterCallCooldownMs);
   const billCooldown = useCooldown(session?.billRequestCooldownMs);
@@ -134,12 +113,58 @@ const App = () => {
     }
     draft.setMyQuantity(dishId, quantity);
   };
-  const setQuantity = (lineId: string, quantity: number) =>
-    void act((id) => TableSessionApi.setCartQuantity(id, lineId, Math.max(0, quantity)));
+
+  /** A change failed: say why and show the table as it really is. */
+  const undo = async (e: unknown) => {
+    notify(messageOf(e), true);
+    await refresh();
+  };
+
+  /** Tabs. Opening Cart moves the menu picks into the table cart: on screen at once, one call in the background. */
+  const openTab = (next: TabId) => {
+    const picks = draft.pending;
+    if (next === 'cart' && tab !== 'cart' && canOrder && customer && picks.length > 0) {
+      table.markFresh(); // this call's response is the fresh table — no extra read
+      table.optimistic((s) => withMyPicks(s, picks, dishes, customer.name));
+      draft.clear();
+      run((id) => TableSessionApi.setMyCart(id, picks))
+        .then((saved) => {
+          const leftOut = picks.some(
+            (i) => i.quantity > 0 && myPlainLine(saved.cart, i.dishId)?.quantity !== i.quantity
+          );
+          if (leftOut) notify(MESSAGES.SOME_UNAVAILABLE, true);
+        })
+        .catch((e) => {
+          picks.forEach((i) => draft.setMyQuantity(i.dishId, i.quantity)); // keep the picks for the next try
+          void undo(e);
+        });
+    }
+    setTab(next);
+  };
+
+  /** Cart −/+ : instant on screen; calls go out in tap order in the background. */
+  const setQuantity = (lineId: string, quantity: number) => {
+    const qty = Math.max(0, quantity);
+    const dishId = session?.cart.find((l) => l._id === lineId)?.dishId;
+    table.optimistic((s) => withQuantity(s, lineId, qty));
+    run((id) => {
+      // A line shown before the server gave it an id → look up its real id now
+      const realId = isTempLine(lineId)
+        ? dishId && myPlainLine(table.serverView()?.cart ?? [], dishId)?._id
+        : lineId;
+      return realId ? TableSessionApi.setCartQuantity(id, realId, qty) : TableSessionApi.getSession(id);
+    }).catch(undo);
+  };
 
   const placeOrder = async (instructions: string) => {
+    // Queued after any −/+ still on its way, against the cart version those calls produced
     const ok = await act(
-      (id) => TableSessionApi.placeOrder(id, session!.cartVersion, instructions.trim() || undefined),
+      (id) =>
+        TableSessionApi.placeOrder(
+          id,
+          table.serverView()?.cartVersion ?? session!.cartVersion,
+          instructions.trim() || undefined
+        ),
       MESSAGES.ORDER_SENT
     );
     if (ok) setTab('orders');
@@ -235,7 +260,7 @@ const App = () => {
               cartCount={cartCount}
               activeOrders={activeOrders}
               showCart={orderingEnabled}
-              onChange={setTab}
+              onChange={openTab}
             />
           </>
         )}

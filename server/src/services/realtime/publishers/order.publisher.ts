@@ -22,14 +22,15 @@ const signalOf = (order: IOrderLike): IOrderSignal => ({
   status: order.status,
 });
 
-const toStaffAndKitchen = (order: IOrderLike, event: string) => {
+const toStaffAndKitchen = (order: IOrderLike, event: string, by?: string) => {
   const restaurantId = order.restaurantId.toString();
   publish([ROOMS.restaurant(restaurantId), ROOMS.kitchen(restaurantId)], event, signalOf(order));
-  tableChanged(restaurantId, order.tableId.toString());
+  tableChanged(restaurantId, order.tableId.toString(), by);
 };
 
-/** A new order (diners' cart or a waiter). */
-export const orderPlaced = (order: IOrderLike): void => toStaffAndKitchen(order, RESTAURANT_EVENTS.NEW_ORDER);
+/** A new order (diners' cart or a waiter). `by` = the diner who sent it, if a diner did. */
+export const orderPlaced = (order: IOrderLike, by?: string): void =>
+  toStaffAndKitchen(order, RESTAURANT_EVENTS.NEW_ORDER, by);
 
 /** An order's status or items changed. */
 export const orderChanged = (order: IOrderLike): void =>

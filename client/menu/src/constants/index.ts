@@ -58,6 +58,7 @@ const MESSAGES = {
   ERROR_LOAD: 'Could not load the menu. Please scan the QR code on your table again.',
   ERROR_BAD_LINK: 'This link is not a table QR code. Please scan the QR code on your table.',
   ERROR_GENERIC: 'Something went wrong. Please try again.',
+  ERROR_NETWORK: "Couldn't reach the restaurant just now. Check your internet and try again.",
   CART_CHANGED: 'Someone at your table just changed the cart — please review it and place the order again.',
 
   SIGN_IN_TITLE: 'Sign in to order',

@@ -10,6 +10,8 @@ import { useTableSync } from './useTableSync';
 // useTableSession — the diner's seat at the table.
 // Resumes the session saved on this phone, otherwise joins the table's open session (or opens one).
 // Every response carries the whole table view, so the latest one simply replaces the state.
+// Changes are optimistic: `optimistic()` updates the screen at once, `run()` sends the call in the
+// background. Calls go out one at a time, in tap order, so the server ends up exactly where the screen is.
 // ============================================================
 
 const readStored = (tableId: string): string | null => {
@@ -38,8 +40,10 @@ export const useTableSession = (
   link: ITableLink | null,
   tableId: string | undefined,
   signedIn: boolean,
-  /** Keep this phone live-synced with the table (Cart / Orders tabs). Off while browsing the menu. */
-  live: boolean
+  /** The Cart / Orders tab is on screen — refetch on others' changes. On the Menu tab they only mark it stale. */
+  visible: boolean,
+  /** This diner's customer id — pushes caused by their own actions are skipped. */
+  myId: string | undefined
 ) => {
   const [session, setSession] = useState<ITableSession | null>(null);
   const [joining, setJoining] = useState(false);
@@ -48,11 +52,21 @@ export const useTableSession = (
   const [locationProblem, setLocationProblem] = useState<LocationProblem | null>(null);
   const latest = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
+  /** The newest table view the server has sent (screen may be ahead of it with optimistic changes). */
+  const server = useRef<ITableSession | null>(null);
+  /** The table changed since we last fetched it (see useTableSync). */
+  const stale = useRef(false);
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  });
 
-  /** Apply a response only if no newer request has been started since (avoids out-of-order overwrites). */
+  /** Apply a response only if nothing newer happened since (no out-of-order overwrites of the screen). */
   const track = useCallback(() => {
     const seq = ++latest.current;
     return (next: ITableSession) => {
+      const known = server.current;
+      if (!known || known._id !== next._id || next.cartVersion >= known.cartVersion) server.current = next;
       if (seq !== latest.current) return;
       sessionIdRef.current = next._id;
       setSession(next);
@@ -120,9 +134,19 @@ export const useTableSession = (
     };
   }, [signedIn, tableId, join, track]);
 
+  // ---------------- changes: one at a time, in tap order
+
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const inFlight = useRef(0);
+
   const refresh = useCallback(async () => {
     const sessionId = sessionIdRef.current;
     if (!sessionId) return;
+    // A change of ours is on its way — its response is fresher than this read could be. Catch up after.
+    if (inFlight.current > 0) {
+      stale.current = true;
+      return;
+    }
     try {
       const apply = track();
       apply(await TableSessionApi.getSession(sessionId));
@@ -131,28 +155,68 @@ export const useTableSession = (
     }
   }, [track]);
 
-  // Live only where it matters (Cart / Orders). On the Menu tab nothing polls or listens; each add/change
-  // still returns the fresh table view, and opening Cart/Orders refetches at once (then live pushes).
-  useTableSync(session && live ? tableId : undefined, refresh);
-
-  /** Run a table action; on success its response (the fresh table view) replaces the state. */
+  /** Send a table action (after any earlier ones); its response — the fresh table view — replaces the state. */
   const run = useCallback(
-    async (action: (sessionId: string) => Promise<ITableSession>): Promise<ITableSession> => {
-      const sessionId = sessionIdRef.current;
-      if (!sessionId) throw new Error('Not at a table yet');
-      const apply = track();
-      const next = await action(sessionId);
-      apply(next);
-      return next;
+    (action: (sessionId: string) => Promise<ITableSession>): Promise<ITableSession> => {
+      inFlight.current++;
+      const result = queue.current.then(async () => {
+        const sessionId = sessionIdRef.current;
+        if (!sessionId) throw new Error('Not at a table yet');
+        const apply = track();
+        const next = await action(sessionId);
+        apply(next);
+        return next;
+      });
+      queue.current = result
+        .catch(() => undefined)
+        .finally(() => {
+          inFlight.current--;
+          // Others changed the table while ours were in flight → one catch-up read (if it's on screen)
+          if (inFlight.current === 0 && stale.current && visibleRef.current) {
+            stale.current = false;
+            void refresh();
+          }
+        });
+      return result;
     },
-    [track]
+    [track, refresh]
   );
+
+  /** Show a change at once; pair it with run() — that call's response (or a refetch on error) settles it. */
+  const optimistic = useCallback((update: (session: ITableSession) => ITableSession) => {
+    latest.current++; // responses already on their way are older than this screen
+    setSession((s) => (s ? update(s) : s));
+  }, []);
+
+  /** The newest table view from the server (real line ids, current cart version). */
+  const serverView = useCallback(() => server.current, []);
+
+  /** The screen is about to be brought up to date by a call we're making — skip the catch-up read. */
+  const markFresh = useCallback(() => {
+    stale.current = false;
+  }, []);
+
+  const live = useTableSync({ tableId: session ? tableId : undefined, visible, myId, staleRef: stale, refresh });
 
   const reset = useCallback(() => {
     latest.current++;
     sessionIdRef.current = null;
+    server.current = null;
     setSession(null);
   }, []);
 
-  return { session, joining, error, locationProblem, join, refresh, run, reset };
+  return {
+    session,
+    joining,
+    error,
+    locationProblem,
+    live,
+    join,
+    refresh,
+    run,
+    optimistic,
+    serverView,
+    markFresh,
+    reset,
+  };
 };

@@ -604,6 +604,34 @@ filter, so a second call within 5 min → **429** "…You can ask again in N min
 `waiterCallCooldownMs` / `billRequestCooldownMs`; the menu (`hooks/useCooldown.ts`) disables the button and shows
 "again in m:ss". Change the gap with `ALERT_COOLDOWN_MS` in `table-session.constants.ts`.
 
+### 6d.13 Instant Cart: optimistic updates, no echo refetch, fewer reads
+
+**Optimistic.** The screen changes first; the call goes in the background (`useTableSession.optimistic()` +
+`run()`). `run()` sends table calls one at a time in tap order, so the server ends up where the screen is; the
+response (the full table view) then replaces the screen. On error: toast + one refetch (and menu picks go back
+into the draft so the next Cart open retries).
+- **Opening Cart with menu picks** — `App.openTab` puts them in the cart at once (new lines get a temporary id
+  `draft:<dishId>` from `utils/cart.util.ts`), clears the draft, then sends ONE `PUT cart/setMine`. No GET.
+- **Cart −/+** — instant; one `PATCH cart/setQuantity` per tap, in order. A tap on a temp line is resolved to its
+  real id at send time (`serverView()` = newest server view). Buttons are no longer locked while a call is out.
+- **Place order** waits for queued −/+ and uses the newest server `cartVersion`.
+
+**No echo refetch.** Table pushes carry `by` (customer id of the diner who did it: join, cart edits, place
+order, call waiter / bill). That diner's phone skips its own push — the response already updated it. Others refetch.
+
+**Fewer reads (`hooks/useTableSync.ts`).** The table room is held while at a table (pushes cost nothing). On the
+Menu tab a push only marks the table *stale*; opening Cart/Orders refetches only if stale (0 calls otherwise).
+While our own calls are out, refetches wait and run once after. Room (re)join / tab back / network back → catch up
+the same way. Polling only while the socket is down AND the table is on screen.
+
+**Errors.** Menu axios: 20 s timeout; one quiet retry after 0.8 s for GET/PUT/PATCH on network error or 502/503/504
+(server restarting / deploying). POSTs are never retried. Such errors now say "Couldn't reach the restaurant…"
+instead of "Something went wrong".
+
+**Redis — not now.** Measured on Render (from India): network ≈ 130 ms, each Mongo read ≈ 60 ms. Redis would save only
+the 60 ms; optimistic UI hides the whole round trip. Add Redis when running more than one API instance (Socket.IO
+adapter) or under heavy load.
+
 ---
 
 ## 7. Decisions made
