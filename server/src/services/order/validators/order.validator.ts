@@ -20,10 +20,16 @@ export const staffPlaceOrderSchema = z.object({
   customerName: z.string().max(50).trim().optional(),
 });
 
-/** Full new item list. To drop every item, cancel the order instead. */
+/** Full new item list. To drop every item, cancel the order instead. Lines from several diners are combined
+ * into one per dish, so a line may exceed the per-diner 50. */
 export const updateOrderItemsSchema = z.object({
   items: z
-    .array(orderItemSchema.extend({ addedBy: z.string().max(60).trim().optional() }))
+    .array(
+      orderItemSchema.extend({
+        quantity: z.number().int().min(1).max(200),
+        addedBy: z.string().max(200).trim().optional(),
+      })
+    )
     .min(1, 'Order must have at least one item. Cancel the order to remove everything.')
     .max(100),
   specialInstructions: z.string().max(500).trim().optional(),

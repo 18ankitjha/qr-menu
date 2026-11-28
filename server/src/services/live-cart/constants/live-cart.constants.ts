@@ -16,6 +16,8 @@ export const LIVE_CART_LIMITS = {
   DISH_CACHE_MS: 60 * 1000,
   /** Edit messages one socket may send per second (a phone batches taps, so real use is ~4/s at most). */
   MAX_EDITS_PER_SECOND: 10,
+  /** Names kept on a combined order line ("Asha, Bala") — same cap as the order's customerName. */
+  ADDED_BY_MAX_LENGTH: 200,
 } as const;
 
 /** `<memberKey>.<dishId>` — memberKey is 12 hex chars, dishId a Mongo id. */

@@ -5,7 +5,7 @@ import { getOrdersByTable, previewTableBill, generateTableBill, getBills, getBil
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, ROUTES, MESSAGES } from '../constants';
 import type { IBill, IBillPreview, IOrder, ITableOrders } from '../types';
 import { formatMoney } from '../utils/money';
-import { canEditOrder } from '../utils/order';
+import { canEditOrder, combineItems } from '../utils/order';
 import { BillBreakdown } from './BillBreakdown';
 import { EditOrderModal } from './EditOrderModal';
 import './Billing.css';
@@ -143,7 +143,7 @@ const TableBillModal = ({ tableId, tableNumber, tableLabel, onClose, onBillGener
                       <div className="bill-order-main">
                         <span className="bill-order-id">#{order._id.slice(-6)}</span>
                         <span className="bill-order-items">
-                          {order.items.map((i) => `${i.quantity}× ${i.dishName}`).join(', ')}
+                          {combineItems(order.items).map((i) => `${i.quantity}× ${i.dishName}`).join(', ')}
                           {order.customerName && <> · {TEXT.CUSTOMERS(order.customerName)}</>}
                         </span>
                       </div>

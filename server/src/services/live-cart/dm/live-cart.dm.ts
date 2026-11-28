@@ -23,7 +23,7 @@ import { getOrderableMenu, pruneDishCache } from './dish-cache';
 // ============================================================
 
 const store: ICartStore = memoryCartStore;
-const { MAX_LINE_QUANTITY, MAX_LINES } = LIVE_CART_LIMITS;
+const { MAX_LINE_QUANTITY, MAX_LINES, ADDED_BY_MAX_LENGTH } = LIVE_CART_LIMITS;
 
 // ---------------------------------------------------------------- per-session lock
 
@@ -293,6 +293,25 @@ const restore = (sessionId: string, lines: ILiveCartLine[], changedBy: string): 
   });
 
 /**
+ * One order line per dish + note, whoever picked it — staff and the kitchen see "2 × Aloo patty", not one
+ * line per diner. `addedBy` keeps the names (only the diners' own Orders tab shows them).
+ */
+const combineLines = (lines: ILiveCartLine[]) => {
+  const combined = new Map<string, { dishId: string; quantity: number; notes?: string; names: Set<string> }>();
+  for (const l of lines) {
+    const key = `${l.dishId}|${l.notes ?? ''}`;
+    const line = combined.get(key) ?? { dishId: l.dishId, quantity: 0, notes: l.notes, names: new Set<string>() };
+    line.quantity += l.quantity;
+    line.names.add(l.name);
+    combined.set(key, line);
+  }
+  return [...combined.values()].map(({ names, ...line }) => ({
+    ...line,
+    addedBy: [...names].join(', ').slice(0, ADDED_BY_MAX_LENGTH),
+  }));
+};
+
+/**
  * Send the whole shared cart to the kitchen as one order — only if it is still at `cartVersion` (what the
  * diner reviewed), otherwise 409 and nothing is ordered. The emptied cart is saved BEFORE the order is
  * created, so a crash can never order the same food twice; if the order fails the lines are put back.
@@ -334,7 +353,7 @@ export const placeOrder = async (
     return await OrderDM.placeOrder({
       restaurantId: taken.restaurantId,
       tableId: taken.tableId,
-      items: taken.lines.map((l) => ({ dishId: l.dishId, quantity: l.quantity, notes: l.notes, addedBy: l.name })),
+      items: combineLines(taken.lines),
       customerName: contributors.join(', ').slice(0, 200),
       specialInstructions: specialInstructions?.trim() || undefined,
     });

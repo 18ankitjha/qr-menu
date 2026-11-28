@@ -10,6 +10,7 @@ import {
 } from './constants';
 import { FALLBACK_POLL_MS, KITCHEN_EVENTS, kitchenRoom, useLiveRefresh, useSocketEvent } from './realtime';
 import type { IOrder, IApiResponse } from './types';
+import { combineItems } from './utils/order';
 import './index.css';
 
 const ORDER_PUSHES = [KITCHEN_EVENTS.NEW_ORDER, KITCHEN_EVENTS.ORDER_STATUS_UPDATED] as const;
@@ -187,8 +188,8 @@ const OrderCard = ({
       </div>
       <div className="ticket-order-id">Order #{order._id.slice(-6)}</div>
       <div className="ticket-items">
-        {order.items.map((item, i) => (
-          <div key={i} className="ticket-item">
+        {combineItems(order.items).map((item) => (
+          <div key={`${item.dishId}|${item.notes ?? ''}`} className="ticket-item">
             <span className="ticket-qty">{item.quantity}{MESSAGES.ITEM_SEP}</span>
             <span className="ticket-name">{item.dishName}</span>
             {item.notes && <span className="ticket-note">({item.notes})</span>}

@@ -13,7 +13,7 @@ import { TakeOrderModal } from '../components/TakeOrderModal';
 import { TableAlertsBanner } from '../components/TableAlertsBanner';
 import { EditOrderModal } from '../components/EditOrderModal';
 import { PayButtons } from '../components/PayButtons';
-import { canEditOrder } from '../utils/order';
+import { canEditOrder, combineItems } from '../utils/order';
 import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
 
 /** Pushes that change the orders / bills on this page. */
@@ -222,11 +222,8 @@ const Orders = () => {
   const allStatuses = Object.values(ORDER_STATUS);
 
   const renderOrder = (order: IOrder) => {
-    // Paid (Completed tab): nothing left to do. Billed: it can still be cooked/served, not cancelled.
-    const transitions =
-      view === 'completed'
-        ? []
-        : (STATUS_TRANSITIONS[order.status] || []).filter((s) => !order.billId || !NOT_CHARGED_STATUSES.includes(s));
+    // Billed or paid: the order is settled — no status buttons (the kitchen board can still move it along).
+    const transitions = view === 'completed' || order.billId ? [] : STATUS_TRANSITIONS[order.status] || [];
     return (
       <div key={order._id} className="order-card">
         <div className="order-header">
@@ -247,11 +244,11 @@ const Orders = () => {
 
         <div className="order-body">
           <div className="order-items">
-            {order.items.map((item, i) => (
-              <div key={i} className="order-item-row">
+            {combineItems(order.items).map((item) => (
+              <div key={`${item.dishId}|${item.notes ?? ''}|${item.price}`} className="order-item-row">
                 <span>
                   {item.quantity}{PAGE.ITEM_SEPARATOR}{item.dishName}
-                  {item.addedBy && <span className="order-time"> · {item.addedBy}</span>}
+                  {item.notes && <span className="order-time"> · “{item.notes}”</span>}
                 </span>
                 <span>{PAGE.CURRENCY}{item.price * item.quantity}</span>
               </div>

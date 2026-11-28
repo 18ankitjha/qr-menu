@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getOrderingMenu, updateOrderItems, getErrorMessage } from '../services/api';
 import { MESSAGES } from '../constants';
 import type { IDish, IOrder, IOrderingMenu } from '../types';
+import { combineItems } from '../utils/order';
 import './TakeOrder.css';
 
 // ============================================================
@@ -27,6 +28,8 @@ const TEXT = {
 } as const;
 
 const CURRENCY = '₹';
+/** Per line. A diner can add 50, and lines from several diners are combined — same cap as the server's edit. */
+const MAX_LINE_QUANTITY = 200;
 
 interface ILine {
   key: string;
@@ -46,7 +49,7 @@ interface IEditOrderModalProps {
 
 const EditOrderModal = ({ order, onClose, onSaved }: IEditOrderModalProps) => {
   const [lines, setLines] = useState<ILine[]>(() =>
-    order.items.map((item, i) => ({
+    combineItems(order.items).map((item, i) => ({
       key: `old-${i}`,
       dishId: item.dishId,
       dishName: item.dishName,
@@ -79,7 +82,7 @@ const EditOrderModal = ({ order, onClose, onSaved }: IEditOrderModalProps) => {
     setLines((prev) =>
       quantity <= 0
         ? prev.filter((l) => l.key !== key)
-        : prev.map((l) => (l.key === key ? { ...l, quantity: Math.min(quantity, 50) } : l))
+        : prev.map((l) => (l.key === key ? { ...l, quantity: Math.min(quantity, MAX_LINE_QUANTITY) } : l))
     );
 
   const setNote = (key: string, notes: string) =>
@@ -90,8 +93,8 @@ const EditOrderModal = ({ order, onClose, onSaved }: IEditOrderModalProps) => {
 
   const addDish = (dish: IDish) =>
     setLines((prev) => {
-      const plain = prev.find((l) => l.dishId === dish._id && !l.notes && !l.addedBy);
-      if (plain) return prev.map((l) => (l === plain ? { ...l, quantity: Math.min(l.quantity + 1, 50) } : l));
+      const plain = prev.find((l) => l.dishId === dish._id && !l.notes);
+      if (plain) return prev.map((l) => (l === plain ? { ...l, quantity: Math.min(l.quantity + 1, MAX_LINE_QUANTITY) } : l));
       return [
         ...prev,
         { key: `new-${dish._id}-${Date.now()}`, dishId: dish._id, dishName: dish.name, price: priceOf(dish), quantity: 1, notes: '' },
@@ -140,10 +143,7 @@ const EditOrderModal = ({ order, onClose, onSaved }: IEditOrderModalProps) => {
                 {lines.map((l) => (
                   <div key={l.key} className="take-order-line">
                     <div className="take-order-line-top">
-                      <span>
-                        {l.dishName}
-                        {l.addedBy && <span className="take-order-muted"> · {l.addedBy}</span>}
-                      </span>
+                      <span>{l.dishName}</span>
                       <span>{CURRENCY}{l.price * l.quantity}</span>
                     </div>
                     <div className="edit-order-line-controls">

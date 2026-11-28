@@ -688,6 +688,17 @@ cart edits can be lost; phones still hold their unsent edits.
 `[live-cart]` warnings when a snapshot save fails (retried next sweep) or a cart can't be restored after a failed
 order. Dish details are cached 60 s (`DISH_CACHE_MS`).
 
+### 6d.15 Staff see combined dish lines; no status buttons once billed
+
+- **Combined lines.** Waiter, admin and kitchen see `2 × Aloo patty`, not one line per diner. The live cart's
+  `placeOrder` merges lines by dish + note (`combineLines` in `live-cart.dm.ts`), so the DB, kitchen ticket and
+  order PDF are already combined. `addedBy` keeps all names joined ("Asha, Ravi", max 200 chars) and is shown only
+  to diners. Older orders are merged on screen by `combineItems` (admin `utils/order.ts`, kitchen `utils/order.ts`).
+- **Edit cap.** A combined line can be above 50, so the staff edit limit is now 200 per line (server
+  `updateOrderItemsSchema` + `EditOrderModal`).
+- **Billed orders.** Orders with a `billId` (Billed / Completed tabs) show no Confirmed / Cancelled / status
+  buttons. Current orders keep them.
+
 ---
 
 ## 7. Decisions made
