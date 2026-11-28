@@ -42,6 +42,8 @@ export interface ITableSession {
   cartVersion: number;
   billRequested?: ISessionAlert | null;
   waiterCalled?: ISessionAlert | null;
+  lastBillRequestAt?: Date | null;
+  lastWaiterCallAt?: Date | null;
   billId?: Types.ObjectId | null;
   closedAt?: Date | null;
   closedReason?: SessionCloseReason | null;
@@ -64,6 +66,12 @@ export interface IAddToCartInput {
   dishId: string;
   quantity: number;
   notes?: string;
+}
+
+/** The quantity a diner wants of a dish on their own plain (no notes) cart line. 0 removes it. */
+export interface IMyCartItem {
+  dishId: string;
+  quantity: number;
 }
 
 export interface IDiner {

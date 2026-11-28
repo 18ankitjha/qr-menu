@@ -52,6 +52,9 @@ const tableSessionSchema = new Schema<ITableSessionDocument>(
     cartVersion: { type: Number, default: 0 },
     billRequested: { type: alertSchema, default: null },
     waiterCalled: { type: alertSchema, default: null },
+    // Kept after staff dismiss the alert — drives the per-table cooldown
+    lastBillRequestAt: { type: Date, default: null },
+    lastWaiterCallAt: { type: Date, default: null },
     billId: { type: Schema.Types.ObjectId, ref: 'Bill', default: null },
     closedAt: { type: Date, default: null },
     closedReason: { type: String, enum: [...Object.values(SessionCloseReason), null], default: null },

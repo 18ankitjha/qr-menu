@@ -16,6 +16,9 @@ export const postData = async <T>(url: string, body?: unknown): Promise<T> =>
 export const patchData = async <T>(url: string, body?: unknown): Promise<T> =>
   (await http.patch<IApiResponse<T>>(url, body)).data.data;
 
+export const putData = async <T>(url: string, body?: unknown): Promise<T> =>
+  (await http.put<IApiResponse<T>>(url, body)).data.data;
+
 export const statusOf = (error: unknown): number | undefined =>
   axios.isAxiosError(error) ? error.response?.status : undefined;
 

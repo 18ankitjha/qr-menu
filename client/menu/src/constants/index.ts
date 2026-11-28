@@ -19,6 +19,7 @@ const API_ENDPOINTS = {
   GET_SESSION: (sessionId: string) => `/table-session/get/${sessionId}`,
   CART_ADD: (sessionId: string) => `/table-session/cart/add/${sessionId}`,
   CART_SET_QUANTITY: (sessionId: string) => `/table-session/cart/setQuantity/${sessionId}`,
+  CART_SET_MINE: (sessionId: string) => `/table-session/cart/setMine/${sessionId}`,
   PLACE_ORDER: (sessionId: string) => `/table-session/placeOrder/${sessionId}`,
   REQUEST_BILL: (sessionId: string) => `/table-session/requestBill/${sessionId}`,
   CALL_WAITER: (sessionId: string) => `/table-session/callWaiter/${sessionId}`,
@@ -34,7 +35,12 @@ const SYNC = {
 
 const STORAGE_KEYS = {
   SESSION: (tableId: string) => `qr_menu_session:${tableId}`,
+  /** Menu-page picks not yet sent to the table cart. */
+  DRAFT: (sessionId: string) => `qr_menu_draft:${sessionId}`,
 } as const;
+
+/** Most of one dish a diner can have on their line (server limit). */
+const MAX_DISH_QUANTITY = 50;
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   PLACED: 'Order placed',
@@ -89,6 +95,9 @@ const MESSAGES = {
   BTN_CALL_WAITER: '🙋 Call waiter',
   BILL_REQUESTED: 'Bill requested',
   WAITER_CALLED: 'Waiter called',
+  ASK_AGAIN_IN: (seconds: number) =>
+    `again in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`,
+  SOME_UNAVAILABLE: 'Some dishes are no longer available and were left out of the cart.',
   RUNNING_BILL: 'Running bill',
   PENDING_ORDERS: (n: number) => `${n} order${n === 1 ? '' : 's'} still being prepared`,
   FINAL_BILL: 'Your bill',
@@ -106,4 +115,4 @@ const MESSAGES = {
   ALL: 'All',
 } as const;
 
-export { API_BASE_URL, API_ENDPOINTS, SYNC, STORAGE_KEYS, ORDER_STATUS_LABELS, MESSAGES };
+export { API_BASE_URL, API_ENDPOINTS, SYNC, STORAGE_KEYS, MAX_DISH_QUANTITY, ORDER_STATUS_LABELS, MESSAGES };

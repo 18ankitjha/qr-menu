@@ -184,8 +184,6 @@ interface IOpenTableSession {
   tableId: string;
   tableNumber: number;
   members: string[];
-  cartLines: number;
-  cartTotal: number;
   /** Orders waiting to be billed — the table can only be cleared (without a bill) when this is 0. */
   unbilledOrders: number;
   billRequested: ITableAlert | null;

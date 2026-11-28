@@ -1,5 +1,7 @@
 import { IOrder } from '../../order';
 import { ITableSession } from '../interfaces/table-session.interface';
+import { TableAlertType } from '../constants/table-session.constants';
+import { alertCooldownLeftMs } from '../dm/table-session.dm';
 
 // ============================================================
 // Session views — what diners and staff get back (no other diners' ids / emails).
@@ -32,6 +34,9 @@ export const toDinerView = (session: ITableSession, orders: IOrder[], customerId
   cartTotal: round2(session.cart.reduce((sum, l) => sum + l.price * l.quantity, 0)),
   billRequestedAt: session.billRequested?.at ?? null,
   waiterCalledAt: session.waiterCalled?.at ?? null,
+  /** Time left before the table may ask again (the phone counts down from when it got this). */
+  billRequestCooldownMs: alertCooldownLeftMs(session, TableAlertType.BILL),
+  waiterCallCooldownMs: alertCooldownLeftMs(session, TableAlertType.WAITER),
   billId: session.billId?.toString() ?? null,
   closedAt: session.closedAt ?? null,
   closedReason: session.closedReason ?? null,
@@ -54,14 +59,13 @@ export const toDinerView = (session: ITableSession, orders: IOrder[], customerId
   })),
 });
 
-/** Staff view of an open table (alerts + who is there + whether it can be cleared without a bill). */
+/** Staff view of an open table (alerts + who is there + whether it can be cleared without a bill).
+ * No cart: staff see food once it is ordered. */
 export const toStaffView = (session: ITableSession, unbilledOrders = 0) => ({
   _id: session._id.toString(),
   tableId: session.tableId.toString(),
   tableNumber: session.tableNumber,
   members: session.members.map((m) => m.name),
-  cartLines: session.cart.length,
-  cartTotal: round2(session.cart.reduce((sum, l) => sum + l.price * l.quantity, 0)),
   unbilledOrders,
   billRequested: session.billRequested ?? null,
   waiterCalled: session.waiterCalled ?? null,

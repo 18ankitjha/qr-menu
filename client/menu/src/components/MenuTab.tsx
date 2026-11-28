@@ -6,11 +6,12 @@ import { thumbUrl } from '../utils/image.util';
 
 interface Props {
   menu: ITableMenu;
+  /** The table cart as last fetched — for "added by others". */
   cart: ICartLine[];
-  busy: boolean;
   canAdd: boolean;
-  onAdd: (dishId: string) => void;
-  onSetQuantity: (lineId: string, quantity: number) => void;
+  /** This diner's quantity of a dish (their picks on this phone, else what's in the table cart). */
+  myQuantity: (dishId: string) => number;
+  onSetMine: (dishId: string, quantity: number) => void;
 }
 
 type DietFilter = 'all' | 'veg' | 'nonveg';
@@ -34,9 +35,9 @@ const matches = (dish: IDish, diet: DietFilter, query: string) => {
 
 /**
  * The menu as collapsible category cards, with a category icon strip and Search / Veg / Non-veg filters.
- * Quantities come from the live table cart.
+ * −/+ only change this phone's picks (instant); they reach the table cart when the Cart tab opens.
  */
-const MenuTab = ({ menu, cart, busy, canAdd, onAdd, onSetQuantity }: Props) => {
+const MenuTab = ({ menu, cart, canAdd, myQuantity, onSetMine }: Props) => {
   const categories = useMemo(
     () =>
       menu.categories
@@ -157,18 +158,19 @@ const MenuTab = ({ menu, cart, busy, canAdd, onAdd, onSetQuantity }: Props) => {
                 <div className="cat-card-body dish-container dish-container--list">
                   {cat.description && <p className="cat-card-desc">{cat.description}</p>}
                   {cat.dishes.map((dish) => {
-                    const lines = cart.filter((l) => l.dishId === dish._id);
-                    const mine = lines.find((l) => l.addedBy.isMe && !l.notes);
+                    const othersQuantity = cart
+                      .filter((l) => l.dishId === dish._id && !(l.addedBy.isMe && !l.notes))
+                      .reduce((sum, l) => sum + l.quantity, 0);
+                    const mine = myQuantity(dish._id);
                     return (
                       <DishCard
                         key={dish._id}
                         dish={dish}
-                        tableQuantity={lines.reduce((sum, l) => sum + l.quantity, 0)}
-                        myQuantity={mine?.quantity ?? 0}
-                        busy={busy}
+                        othersQuantity={othersQuantity}
+                        myQuantity={mine}
                         canAdd={canAdd}
-                        onAdd={() => onAdd(dish._id)}
-                        onRemoveOne={() => mine && onSetQuantity(mine._id, mine.quantity - 1)}
+                        onAdd={() => onSetMine(dish._id, mine + 1)}
+                        onRemoveOne={() => onSetMine(dish._id, mine - 1)}
                       />
                     );
                   })}

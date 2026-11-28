@@ -13,6 +13,12 @@ export const tableChanged = (restaurantId: string, tableId: string): void => {
   publish(ROOMS.restaurant(restaurantId), RESTAURANT_EVENTS.TABLES_UPDATED, signal);
 };
 
+/** Diners edited the shared cart: only that table hears it. Staff see food once it is ordered. */
+export const cartChanged = (tableId: string): void => {
+  const signal: ITableSignal = { tableId, at: Date.now() };
+  publish(ROOMS.table(tableId), TABLE_EVENTS.TABLE_SESSION_UPDATED, signal);
+};
+
 /** A diner called a waiter / asked for the bill: staff phones ring (see `notify`). */
 export const tableAlert = (restaurantId: string, alert: ITableAlertSignal): void => {
   publish(ROOMS.restaurant(restaurantId), RESTAURANT_EVENTS.TABLE_ALERT, alert);

@@ -3,13 +3,12 @@ import { getOpenTableSessions, clearTableAlert, closeTableSession, getErrorMessa
 import { MESSAGES } from '../constants';
 import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
 import type { IOpenTableSession } from '../types';
-import { formatMoney } from '../utils/money';
 import './TableAlertsBanner.css';
 
 // ============================================================
 // Table alerts — diners on the QR menu asked for the bill or called a waiter.
-// Refreshed by the restaurant room's `tables_updated` push (any table change: diners, cart, orders,
-// alerts, bill). Polls only while the live connection is down.
+// Refreshed by the restaurant room's `tables_updated` push (diners join, orders, alerts, bill — not
+// cart edits: staff see food once it is ordered). Polls only while the live connection is down.
 // ============================================================
 
 const TABLE_PUSHES = [RESTAURANT_EVENTS.TABLES_UPDATED] as const;
@@ -25,7 +24,6 @@ const TEXT = {
   TABLE_SUMMARY: (s: IOpenTableSession) =>
     [
       `👤 ${s.members.join(', ')}`,
-      s.cartLines ? `cart ${formatMoney(s.cartTotal)} (not ordered)` : '',
       s.unbilledOrders ? `${s.unbilledOrders} order${s.unbilledOrders === 1 ? '' : 's'} to bill` : '',
     ].filter(Boolean).join(' · '),
   CLEAR_HINT: 'Nothing to bill — clear the table when the guests have left',

@@ -77,7 +77,7 @@ export const getSession = asyncHandler(async (req: Request, res: Response) => {
 const afterCartChange = async (req: Request, res: Response) => {
   const customerId = req.customer!.customerId;
   const session = await TableSessionDM.getSessionForMember(sessionId(req), customerId);
-  TablePublisher.tableChanged(session.restaurantId.toString(), session.tableId.toString());
+  TablePublisher.cartChanged(session.tableId.toString());
   await sendView(res, session, customerId, TABLE_SESSION_MESSAGES.CART_UPDATED);
 };
 
@@ -99,6 +99,13 @@ export const addToCart = asyncHandler(async (req: Request, res: Response) => {
 /** PATCH /table-session/cart/setQuantity/:sessionId — change (0 = remove) any line of the shared cart. */
 export const setCartQuantity = asyncHandler(async (req: Request, res: Response) => {
   await TableSessionDM.setCartLineQuantity(sessionId(req), dinerOf(req), req.body.itemId, req.body.quantity);
+  await afterCartChange(req, res);
+});
+
+/** PUT /table-session/cart/setMine/:sessionId — the diner's menu-page picks, sent in one call. */
+export const setMyCart = asyncHandler(async (req: Request, res: Response) => {
+  await assertCustomerOrderingOn(req);
+  await TableSessionDM.setMyCartQuantities(sessionId(req), dinerOf(req), req.body.items);
   await afterCartChange(req, res);
 });
 

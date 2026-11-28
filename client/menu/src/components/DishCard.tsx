@@ -1,28 +1,26 @@
-import { MESSAGES } from '../constants';
+import { MAX_DISH_QUANTITY, MESSAGES } from '../constants';
 import type { IDish } from '../types';
 import { money } from '../utils/format.util';
 import { thumbUrl } from '../utils/image.util';
 
 interface Props {
   dish: IDish;
-  /** How many of this dish are in the table cart (everyone's). */
-  tableQuantity: number;
-  /** This diner's own plain line for the dish, if any — the −/+ control edits it. */
+  /** How many of this dish others at the table (or this diner, with notes) already have in the cart. */
+  othersQuantity: number;
+  /** This diner's own plain quantity — the −/+ control edits it. */
   myQuantity: number;
-  busy: boolean;
   /** false on a view-only menu: no Add / quantity buttons. */
   canAdd: boolean;
   onAdd: () => void;
   onRemoveOne: () => void;
 }
 
-const DishCard = ({ dish, tableQuantity, myQuantity, busy, canAdd, onAdd, onRemoveOne }: Props) => {
+const DishCard = ({ dish, othersQuantity, myQuantity, canAdd, onAdd, onRemoveOne }: Props) => {
   const details = [
     dish.spiceLevel && dish.spiceLevel !== 'NONE' ? `🌶️ ${dish.spiceLevel.toLowerCase()}` : '',
     dish.servingSize ? `🍽️ ${dish.servingSize}` : '',
     dish.calories != null ? `🔥 ${dish.calories} kcal` : '',
   ].filter(Boolean);
-  const othersQuantity = tableQuantity - myQuantity;
 
   return (
     <article className="dish-card">
@@ -51,16 +49,16 @@ const DishCard = ({ dish, tableQuantity, myQuantity, busy, canAdd, onAdd, onRemo
         <div className="dish-cart-action">
           {myQuantity > 0 ? (
             <div className="qty-control">
-              <button className="qty-btn" onClick={onRemoveOne} disabled={busy} aria-label="Remove one">
+              <button className="qty-btn" onClick={onRemoveOne} aria-label="Remove one">
                 −
               </button>
               <span className="qty-value">{myQuantity}</span>
-              <button className="qty-btn" onClick={onAdd} disabled={busy} aria-label="Add one">
+              <button className="qty-btn" onClick={onAdd} disabled={myQuantity >= MAX_DISH_QUANTITY} aria-label="Add one">
                 +
               </button>
             </div>
           ) : (
-            <button className="btn-add" onClick={onAdd} disabled={busy}>
+            <button className="btn-add" onClick={onAdd}>
               {MESSAGES.BTN_ADD}
             </button>
           )}

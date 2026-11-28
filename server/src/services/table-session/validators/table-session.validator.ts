@@ -43,6 +43,13 @@ export const setCartQuantitySchema = z.object({
   quantity: z.number().int().min(0).max(50),
 });
 
+export const setMyCartSchema = z.object({
+  items: z
+    .array(z.object({ dishId: objectId('dish ID'), quantity: z.number().int().min(0).max(50) }))
+    .min(1)
+    .max(60),
+});
+
 export const placeCartOrderSchema = z.object({
   cartVersion: z.number().int().min(0),
   specialInstructions: z.string().trim().max(500).optional(),

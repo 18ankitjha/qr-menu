@@ -36,6 +36,8 @@ export const TABLE_SESSION_LIMITS = {
   MAX_CART_LINES: 60,
   /** Concurrent joins / cart writes retry this many times before giving up. */
   WRITE_RETRIES: 3,
+  /** A table can call a waiter (or ask for the bill) once per this window, so the button can't be spammed. */
+  ALERT_COOLDOWN_MS: 5 * 60 * 1000,
 } as const;
 
 export const TABLE_SESSION_MESSAGES = {
@@ -64,4 +66,7 @@ export const TABLE_SESSION_MESSAGES = {
   BUSY: 'The table is busy, please try again.',
   UNBILLED_ORDERS: 'This table still has orders that are not billed. Generate the bill first.',
   ORDERING_DISABLED: 'This restaurant takes orders through its staff. Please call a waiter to order.',
+  ALERT_COOLDOWN: (type: TableAlertType, minutes: number) =>
+    `${type === TableAlertType.BILL ? 'The bill was just requested' : 'A waiter was just called'}. ` +
+    `You can ask again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
 } as const;

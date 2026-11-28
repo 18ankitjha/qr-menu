@@ -4,6 +4,7 @@ import {
   IAddToCartInput,
   ICartLine,
   IDiner,
+  IMyCartItem,
   ITableRef,
   ITableSession,
 } from '../interfaces/table-session.interface';
@@ -288,6 +289,81 @@ export const setCartLineQuantity = async (
 };
 
 /**
+ * Apply a diner's menu-page picks in one go: for each dish, set the quantity of their own plain line
+ * (0 removes it, a new dish adds a line). Dishes that are no longer on the menu / available are left out.
+ * Read-modify-write guarded by `cartVersion`, so a concurrent edit by someone else is retried, never lost.
+ */
+export const setMyCartQuantities = async (
+  sessionId: string,
+  diner: IDiner,
+  items: IMyCartItem[]
+): Promise<void> => {
+  const wanted = new Map(items.map((i) => [i.dishId, i.quantity]));
+  const isMinePlain = (l: ICartLine) => l.addedBy.customerId.toString() === diner.customerId && !l.notes;
+  let orderable: Map<string, { _id: Types.ObjectId; name: string; price: number }> | null = null;
+
+  for (let attempt = 0; attempt < TABLE_SESSION_LIMITS.WRITE_RETRIES; attempt++) {
+    const session = await getSessionForMember(sessionId, diner.customerId);
+    if (session.status !== TableSessionStatus.OPEN) {
+      throw createAppError(TABLE_SESSION_MESSAGES.SESSION_CLOSED, 409);
+    }
+    if (!orderable) {
+      const ids = [...wanted.keys()].filter((id) => Types.ObjectId.isValid(id));
+      const [dishes, menu] = await Promise.all([
+        DishDM.getDishesByIds(ids),
+        MenuDM.getMenuByRestaurantId(session.restaurantId.toString()),
+      ]);
+      orderable = new Map(
+        dishes
+          .filter((d) => menu && d.isAvailable && d.menuId.toString() === menu._id.toString())
+          .map((d) => [d._id.toString(), { _id: d._id as Types.ObjectId, name: d.name, price: d.price }])
+      );
+    }
+
+    const now = new Date();
+    const handled = new Set<string>();
+    let changed = false;
+    const cart: ICartLine[] = [];
+    for (const line of session.cart) {
+      const dishId = line.dishId.toString();
+      if (!isMinePlain(line) || !wanted.has(dishId) || handled.has(dishId)) {
+        cart.push(line);
+        continue;
+      }
+      handled.add(dishId);
+      const quantity = wanted.get(dishId)!;
+      if (quantity !== line.quantity) changed = true;
+      if (quantity > 0) cart.push({ ...line, quantity });
+    }
+    for (const [dishId, quantity] of wanted) {
+      const dish = orderable.get(dishId);
+      if (handled.has(dishId) || quantity <= 0 || !dish) continue;
+      changed = true;
+      cart.push({
+        _id: new Types.ObjectId(),
+        dishId: dish._id,
+        dishName: dish.name,
+        price: dish.price,
+        quantity,
+        addedBy: { customerId: new Types.ObjectId(diner.customerId), name: diner.name },
+        addedAt: now,
+      });
+    }
+    if (!changed) return;
+    if (cart.length > TABLE_SESSION_LIMITS.MAX_CART_LINES) {
+      throw createAppError(TABLE_SESSION_MESSAGES.CART_FULL, 400);
+    }
+
+    const result = await TableSessionModel.updateOne(
+      { ...memberFilter(sessionId, diner.customerId), cartVersion: session.cartVersion },
+      { $set: { cart, lastActivityAt: now }, $inc: { cartVersion: 1 } }
+    );
+    if (result.modifiedCount === 1) return;
+  }
+  throw createAppError(TABLE_SESSION_MESSAGES.BUSY, 503);
+};
+
+/**
  * Send the whole shared cart to the kitchen as one order. The cart is taken atomically and only if it is
  * still at `cartVersion` (what the diner reviewed) — otherwise 409 and nothing is ordered. If the order
  * can't be created (e.g. a dish just ran out) the cart lines are put back.
@@ -339,17 +415,35 @@ export const placeCartOrder = async (
 // ---------------------------------------------------------------- alerts
 
 const alertField = (type: TableAlertType) => (type === TableAlertType.BILL ? 'billRequested' : 'waiterCalled');
+const lastAlertField = (type: TableAlertType) =>
+  type === TableAlertType.BILL ? 'lastBillRequestAt' : 'lastWaiterCallAt';
 
-/** Diner asks for the bill / calls a waiter. Repeating it just refreshes the time. */
+/** How long until this table may raise `type` again (0 = now). */
+export const alertCooldownLeftMs = (session: ITableSession, type: TableAlertType, now = Date.now()): number => {
+  const last = session[lastAlertField(type)];
+  return last ? Math.max(0, new Date(last).getTime() + TABLE_SESSION_LIMITS.ALERT_COOLDOWN_MS - now) : 0;
+};
+
+/** Diner asks for the bill / calls a waiter — at most once per cooldown window per table. */
 export const raiseAlert = async (sessionId: string, diner: IDiner, type: TableAlertType): Promise<ITableSession> => {
   const now = new Date();
+  const last = lastAlertField(type);
+  const cutoff = new Date(now.getTime() - TABLE_SESSION_LIMITS.ALERT_COOLDOWN_MS);
   const session = await TableSessionModel.findOneAndUpdate(
-    memberFilter(sessionId, diner.customerId),
-    { $set: { [alertField(type)]: { at: now, by: diner.name }, lastActivityAt: now } },
+    { ...memberFilter(sessionId, diner.customerId), $or: [{ [last]: null }, { [last]: { $lte: cutoff } }] },
+    { $set: { [alertField(type)]: { at: now, by: diner.name }, [last]: now, lastActivityAt: now } },
     { new: true }
   ).lean<ITableSession>();
   if (session) return session;
-  throw (await failureFor(sessionId, diner.customerId)) ?? createAppError(TABLE_SESSION_MESSAGES.BUSY, 503);
+
+  const failure = await failureFor(sessionId, diner.customerId);
+  if (failure) throw failure;
+  const current = await getSessionById(sessionId);
+  const leftMs = current ? alertCooldownLeftMs(current, type, now.getTime()) : 0;
+  if (leftMs > 0) {
+    throw createAppError(TABLE_SESSION_MESSAGES.ALERT_COOLDOWN(type, Math.ceil(leftMs / 60000)), 429);
+  }
+  throw createAppError(TABLE_SESSION_MESSAGES.BUSY, 503);
 };
 
 /** Staff dismiss an alert. */

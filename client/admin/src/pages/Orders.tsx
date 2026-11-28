@@ -222,7 +222,11 @@ const Orders = () => {
   const allStatuses = Object.values(ORDER_STATUS);
 
   const renderOrder = (order: IOrder) => {
-    const transitions = STATUS_TRANSITIONS[order.status] || [];
+    // Paid (Completed tab): nothing left to do. Billed: it can still be cooked/served, not cancelled.
+    const transitions =
+      view === 'completed'
+        ? []
+        : (STATUS_TRANSITIONS[order.status] || []).filter((s) => !order.billId || !NOT_CHARGED_STATUSES.includes(s));
     return (
       <div key={order._id} className="order-card">
         <div className="order-header">

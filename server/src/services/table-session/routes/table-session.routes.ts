@@ -14,6 +14,7 @@ import {
   restaurantIdParamSchema,
   addToCartSchema,
   setCartQuantitySchema,
+  setMyCartSchema,
   placeCartOrderSchema,
   clearAlertSchema,
 } from '../validators/table-session.validator';
@@ -63,6 +64,15 @@ router.patch(
   validateParams(sessionIdParamSchema),
   validateBody(setCartQuantitySchema),
   CustomerController.setCartQuantity
+);
+
+// PUT /table-session/cart/setMine/:sessionId  { items: [{ dishId, quantity }] } — menu-page picks in one call
+router.put(
+  '/cart/setMine/:sessionId',
+  requireCustomer,
+  validateParams(sessionIdParamSchema),
+  validateBody(setMyCartSchema),
+  CustomerController.setMyCart
 );
 
 // POST /table-session/placeOrder/:sessionId  { cartVersion, specialInstructions? }

@@ -544,10 +544,10 @@ Pushes are small signals (ids + status). Screens refetch over REST, so permissio
 | `new_order` | restaurant, kitchen | order placed (diner or waiter) | Orders page, kitchen board (+ chime) |
 | `order_status_updated` | restaurant, kitchen | status or items changed | Orders page, kitchen board |
 | `bill_updated` | restaurant | bill generated / paid | Orders, Bills |
-| `tables_updated` | restaurant | anything at a table changed | table alerts banner |
+| `tables_updated` | restaurant | diners join, alert raised/cleared, table cleared (**not** cart edits) | table alerts banner |
 | `table_alert` | restaurant | diner calls waiter / asks for bill | TableAlertNotifier (rings twice) |
 | `restaurant_updated` | restaurant | super admin approves / suspends | Dashboard approval wait |
-| `table_session_updated` | table | cart, order, bill, staff close | customer menu (Cart / Orders tabs) |
+| `table_session_updated` | table | cart (table only), order, bill, staff close | customer menu (Cart / Orders tabs) |
 
 **Code layout.**
 - Server `services/realtime/`: `constants/` (event + room names), `interfaces/` (signal shapes),
@@ -578,6 +578,31 @@ load balancer); `socket/scaling.adapter.ts` picks it up.
 **Caveats.** Room access is checked at join time — a waiter disabled mid-shift keeps pushes until their socket
 reconnects (the data itself still needs REST, which is checked every call). Opening a page costs ~2 GETs (first
 load + catch-up once live).
+
+### 6d.12 Menu picks stay on the phone, staff see orders only, call-waiter cooldown
+
+**Menu −/+ is local.** On the Menu tab, Add / − / + only change a draft on the phone
+(`client/menu/src/hooks/useCartDraft.ts`, saved in localStorage as `qr_menu_draft:<sessionId>`, so a reload keeps
+it). No API call, so it's instant. When the diner opens the **Cart** tab, `App.tsx` sends the changed picks in ONE
+call — `PUT /table-session/cart/setMine/:sessionId { items: [{ dishId, quantity 0–50 }] }` — which sets the diner's
+own plain (no-notes) line per dish (0 removes it), adds new lines only for dishes still available on the menu
+(others are skipped → toast "Some dishes are no longer available…"), and pushes `table_session_updated` to the
+table. The draft is then cleared. Others at the table see a diner's picks once that diner opens Cart. The Cart tab
+itself still edits lines one call at a time (`setQuantity`), since that's the shared view. The badge = table cart
+with this diner's draft applied. Old `cart/add` stays for cached clients.
+
+**Staff don't see carts.** Cart edits push only to the table room (`TablePublisher.cartChanged`), never to the
+restaurant room, and the staff view (`getOpen`) no longer includes `cartLines` / `cartTotal`. Waiters/admin see
+food only once it's ordered (`new_order`).
+
+**Paid orders have no buttons.** Orders page: completed (paid) orders show no status buttons; billed orders can't be
+Cancelled / Cannot-deliver (server already refused it).
+
+**5-minute cooldown on Call waiter and Request bill** (per table, any diner). The session stores
+`lastWaiterCallAt` / `lastBillRequestAt` (kept when staff dismiss the alert). `raiseAlert` sets them with an atomic
+filter, so a second call within 5 min → **429** "…You can ask again in N minutes." The diner view returns
+`waiterCallCooldownMs` / `billRequestCooldownMs`; the menu (`hooks/useCooldown.ts`) disables the button and shows
+"again in m:ss". Change the gap with `ALERT_COOLDOWN_MS` in `table-session.constants.ts`.
 
 ---
 

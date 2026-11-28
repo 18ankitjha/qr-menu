@@ -7,6 +7,8 @@ import type { ITableMenu, ITableSession, TabId } from './types';
 import { parseTableLink, returnPathFor } from './utils/table-link.util';
 import { useCustomer } from './hooks/useCustomer';
 import { useTableSession } from './hooks/useTableSession';
+import { myPlainLine, useCartDraft } from './hooks/useCartDraft';
+import { useCooldown } from './hooks/useCooldown';
 import Header from './components/Header';
 import SignInCard from './components/SignInCard';
 import LocationCard from './components/LocationCard';
@@ -68,6 +70,39 @@ const App = () => {
     [run, refresh, notify]
   );
 
+  // ---------------- menu picks (local) → table cart (one call when the Cart tab opens)
+
+  const draft = useCartDraft(session);
+  const pendingRef = useRef(draft.pending);
+  pendingRef.current = draft.pending;
+  const orderingOn = menu?.menu.customerOrderingEnabled !== false;
+  const onCartTab = orderingOn && tab === 'cart';
+  const openSessionId = session?.status === 'OPEN' ? session._id : undefined;
+  const { clear: clearDraft } = draft;
+
+  // Runs after useTableSession's own refetch for the tab, so this newer response wins.
+  useEffect(() => {
+    const items = pendingRef.current;
+    if (!onCartTab || !openSessionId || items.length === 0) return;
+    void (async () => {
+      setBusy(true);
+      try {
+        const next = await run((id) => TableSessionApi.setMyCart(id, items));
+        clearDraft();
+        const leftOut = items.some((i) => i.quantity > 0 && myPlainLine(next.cart, i.dishId)?.quantity !== i.quantity);
+        if (leftOut) notify(MESSAGES.SOME_UNAVAILABLE, true);
+      } catch (e) {
+        notify(messageOf(e), true);
+        await refresh();
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [onCartTab, openSessionId, run, refresh, notify, clearDraft]);
+
+  const waiterCooldown = useCooldown(session?.waiterCallCooldownMs);
+  const billCooldown = useCooldown(session?.billRequestCooldownMs);
+
   const googleUrl = link ? API_ENDPOINTS.GOOGLE_LOGIN(returnPathFor(link)) : '#';
 
   // ---------------- render
@@ -84,19 +119,20 @@ const App = () => {
     fontFamily: theme.fontFamily,
   } as CSSProperties;
 
-  const cartCount = session?.cart.reduce((sum, l) => sum + l.quantity, 0) ?? 0;
+  const cartCount = draft.cartCount;
   const activeOrders = session?.orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length ?? 0;
   const orderingEnabled = menu.menu.customerOrderingEnabled !== false;
   const canOrder = orderingEnabled && !!customer && session?.status === 'OPEN';
   const currentTab: TabId = !orderingEnabled && tab === 'cart' ? 'menu' : tab;
   const callWaiter = () => void act((id) => TableSessionApi.callWaiter(id), MESSAGES.WAITER_CALLED);
 
-  const addDish = (dishId: string) => {
+  /** Menu −/+ : instant, local only. */
+  const setMine = (dishId: string, quantity: number) => {
     if (!canOrder) {
       notify(customer ? MESSAGES.JOINING : MESSAGES.SIGN_IN_TITLE, !customer);
       return;
     }
-    void act((id) => TableSessionApi.addToCart(id, dishId));
+    draft.setMyQuantity(dishId, quantity);
   };
   const setQuantity = (lineId: string, quantity: number) =>
     void act((id) => TableSessionApi.setCartQuantity(id, lineId, Math.max(0, quantity)));
@@ -156,8 +192,10 @@ const App = () => {
                 <strong>{MESSAGES.VIEW_ONLY_TITLE}</strong>
                 <span>{MESSAGES.VIEW_ONLY_DESC}</span>
                 {session?.status === 'OPEN' && (
-                  <button className="btn-secondary" disabled={busy} onClick={callWaiter}>
-                    {MESSAGES.BTN_CALL_WAITER}
+                  <button className="btn-secondary" disabled={busy || waiterCooldown > 0} onClick={callWaiter}>
+                    {waiterCooldown > 0
+                      ? `${MESSAGES.WAITER_CALLED} · ${MESSAGES.ASK_AGAIN_IN(waiterCooldown)}`
+                      : MESSAGES.BTN_CALL_WAITER}
                   </button>
                 )}
               </div>
@@ -166,10 +204,9 @@ const App = () => {
               <MenuTab
                 menu={menu}
                 cart={session?.cart ?? []}
-                busy={busy}
                 canAdd={orderingEnabled}
-                onAdd={addDish}
-                onSetQuantity={setQuantity}
+                myQuantity={draft.myQuantity}
+                onSetMine={setMine}
               />
             )}
             {currentTab === 'cart' &&
@@ -183,6 +220,8 @@ const App = () => {
                 <OrdersTab
                   session={session}
                   busy={busy}
+                  billCooldown={billCooldown}
+                  waiterCooldown={waiterCooldown}
                   onRequestBill={() =>
                     void act((id) => TableSessionApi.requestBill(id), MESSAGES.BILL_REQUESTED)
                   }

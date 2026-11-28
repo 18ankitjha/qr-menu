@@ -92,6 +92,9 @@ interface ITableSession {
   cartTotal: number;
   billRequestedAt: string | null;
   waiterCalledAt: string | null;
+  /** Time left (ms, at response time) before the table can ask again. */
+  billRequestCooldownMs: number;
+  waiterCallCooldownMs: number;
   billId: string | null;
   closedAt: string | null;
   closedReason: 'BILLED' | 'IDLE' | 'STAFF' | null;
@@ -140,6 +143,12 @@ interface IGpsCoordinates {
 
 type TabId = 'menu' | 'cart' | 'orders';
 
+/** Quantity this diner wants of a dish on their own cart line (0 = remove). */
+interface IMyCartItem {
+  dishId: string;
+  quantity: number;
+}
+
 export type {
   IMenuTheme,
   IDish,
@@ -149,6 +158,7 @@ export type {
   ICustomer,
   SessionStatus,
   ICartLine,
+  IMyCartItem,
   ISessionOrder,
   ITableSession,
   IBillTotals,
