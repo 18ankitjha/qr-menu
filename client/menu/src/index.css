@@ -1162,3 +1162,23 @@ body {
   font-size: 15px;
 }
 
+
+/* ------- Location needed to join a table ------- */
+.location-card strong {
+  color: #111827;
+  font-size: 15px;
+}
+
+.location-card p {
+  margin: 0;
+}
+
+.location-steps {
+  margin: 0;
+  padding-left: 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #374151;
+}

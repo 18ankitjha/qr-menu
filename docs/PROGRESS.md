@@ -500,7 +500,7 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
 ### 6d.9 Call-waiter ringing, view-only menu, QR cards, landing page
 - **Alert routing:** `table_alert` (Call waiter / Request bill) now carries `notify: 'WAITERS' | 'OWNER'`.
   - `WAITERS` when the restaurant has at least one active staff (`staff.dm.ts countActiveStaff`), otherwise `OWNER`.
-  - Admin app (`components/TableAlertNotifier.tsx`, mounted in `Layout.tsx` after setup) rings a chime (`utils/alert-sound.ts`) and shows a pop-up with the **table number** until dismissed.
+  - Admin app (`components/TableAlertNotifier.tsx`, mounted in `Layout.tsx` after setup) rings a chime twice (`utils/alert-sound.ts`) and shows a pop-up with the **table number** until dismissed.
   - Waiters ring on `WAITERS`; the owner rings only on `OWNER` but still sees the on-page alert list.
   - Browsers block sound until the first tap, so a "Tap to enable sound" pill shows until then.
 - **Customer ordering toggle:** new menu field `customerOrderingEnabled` (default `true`).
@@ -510,6 +510,17 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
 - **Theme tab renamed → Customer Menu** (`/admin/customer-menu`; old `/admin/settings` redirects). Page has "How customers use this menu" (View & order / View only) and "Look & feel".
 - **QR download card** (`components/QrDownloadModal.tsx`): PNG with restaurant name, **TABLE N**, label and CTA; background colour from theme, presets or custom (remembered per restaurant); text colour auto-contrasts.
 - **Landing page:** `client/landing/index.html` (static, shared by the server `/` and the dev gateway `/`). No super admin link; super admins use `/super-admin/` directly. Staff login link is `/admin/login?staff=1` (focuses restaurant code). Gateway dev notes moved to `/dev`.
+
+### 6d.10 Phone fixes: location prompt, missed alerts, ring twice
+- **Customer location (menu app):** `utils/gps.util.ts getLocation()` returns coords or a reason (DENIED / UNAVAILABLE / TIMEOUT / UNSUPPORTED / INSECURE).
+  - If join fails with 400 and we had no coords, `components/LocationCard.tsx` shows "Share your location" with a button. The browser call runs inside the tap, so the browser shows its permission prompt.
+  - When blocked: step-by-step fix for iPhone (Safari aA → Website Settings → Location; Settings → Location Services → Safari Websites) or Android.
+- **Waiter alerts on phones (admin app):** phones pause background tabs and drop the socket, so pushes were missed.
+  - `TableAlertNotifier` now catches up from `GET /table-session/getOpen/:restaurantId` on socket (re)connect, when the tab becomes visible, when back online, and every 30s while visible. Pending calls from the last 10 minutes pop up and ring once; dismissed ones don't come back.
+  - Owner catch-up rings only when the restaurant has no active waiters (same rule as live pushes).
+- **Sound:** unlock is installed at app start (`main.tsx` → `installAlertSoundUnlock`) on click/touchend/keydown (iPhone ignores touchstart), plays a silent buffer to satisfy iOS, and tries to resume when the tab comes back. Usually the login tap is enough.
+- **Ring twice:** each alert plays the chime twice and stops (no 15s repeats). The pop-up stays until dismissed.
+- Limitation: a locked phone / closed tab can't ring (browser JS is paused). That needs Web Push.
 
 ---
 

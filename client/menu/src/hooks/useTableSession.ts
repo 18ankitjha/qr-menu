@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as TableSessionApi from '../api/table-session.api';
 import { messageOf, statusOf } from '../api/http';
 import { STORAGE_KEYS, SYNC } from '../constants';
-import { getCoordinates } from '../utils/gps.util';
+import { getLocation, type LocationProblem } from '../utils/gps.util';
 import type { ITableLink, ITableSession } from '../types';
 import { useTableSync } from './useTableSync';
 
@@ -44,6 +44,8 @@ export const useTableSession = (
   const [session, setSession] = useState<ITableSession | null>(null);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState('');
+  /** Set when joining failed only because we couldn't get the diner's location. */
+  const [locationProblem, setLocationProblem] = useState<LocationProblem | null>(null);
   const latest = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
 
@@ -59,11 +61,25 @@ export const useTableSession = (
 
   const join = useCallback(async () => {
     if (!link || !tableId) return;
+    // Ask for location first, synchronously, so a "Share my location" tap shows the browser prompt
+    const located = getLocation();
     setJoining(true);
     setError('');
+    setLocationProblem(null);
     try {
       const apply = track();
-      const joined = await TableSessionApi.joinTable(link, await getCoordinates());
+      const { coords, problem } = await located;
+      let joined: ITableSession;
+      try {
+        joined = await TableSessionApi.joinTable(link, coords);
+      } catch (e) {
+        // No location and the server needs it → explain how to share it instead of a bare error
+        if (!coords && statusOf(e) === 400) {
+          setLocationProblem(problem ?? 'UNAVAILABLE');
+          return;
+        }
+        throw e;
+      }
       store(tableId, joined._id);
       apply(joined);
     } catch (e) {
@@ -138,5 +154,5 @@ export const useTableSession = (
     setSession(null);
   }, []);
 
-  return { session, joining, error, join, refresh, run, reset };
+  return { session, joining, error, locationProblem, join, refresh, run, reset };
 };

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { ROUTES, SOCKET_EVENTS } from '../constants';
-import type { ITableAlertEvent } from '../types';
-import { isAlertSoundReady, playAlertSound, unlockAlertSound } from '../utils/alert-sound';
+import { getOpenTableSessions, getStaff } from '../services/api';
+import type { IOpenTableSession, ITableAlertEvent } from '../types';
+import { isAlertSoundReady, onAlertSoundChange, playAlertSound, unlockAlertSound } from '../utils/alert-sound';
 import './TableAlertNotifier.css';
 
 // ============================================================
@@ -12,6 +13,10 @@ import './TableAlertNotifier.css';
 //
 // Who hears it: waiters always; the owner only when the restaurant has no active waiters
 // (the server decides and sends it as `notify`). The owner still sees every alert in the on-page lists.
+//
+// Phones pause background tabs and drop the live connection, so a socket push can be missed.
+// We catch up from the open-tables API whenever the page comes back, the socket reconnects,
+// and every 30s while visible — a missed call still pops up (and rings) as soon as the waiter looks.
 // ============================================================
 
 const TEXT = {
@@ -25,14 +30,19 @@ const TEXT = {
   SOUND_HINT: 'Your browser needs one tap before it can ring for table alerts.',
 } as const;
 
-/** Unanswered pop-ups ring again this often, a few times, so a busy waiter doesn't miss them. */
-const REPEAT_RING_MS = 15000;
-const MAX_RINGS = 3;
 const MAX_POPUPS = 5;
+const CATCH_UP_POLL_MS = 30000;
+/** Older pending calls are left to the on-page lists instead of popping up. */
+const CATCH_UP_WINDOW_MS = 10 * 60 * 1000;
 
-interface Popup extends ITableAlertEvent {
+type AlertType = ITableAlertEvent['type'];
+
+interface Popup {
   key: string;
-  rings: number;
+  type: AlertType;
+  tableNumber: number;
+  by: string;
+  at: string;
 }
 
 interface Props {
@@ -40,79 +50,127 @@ interface Props {
   isOwner: boolean;
 }
 
-const shouldRing = (alert: ITableAlertEvent, isOwner: boolean) =>
-  isOwner ? alert.notify === 'OWNER' : true;
+const keyOf = (sessionId: string, type: AlertType) => `${sessionId}:${type}`;
 
-const showSystemNotification = (alert: ITableAlertEvent) => {
+const showSystemNotification = (p: Popup) => {
   if (!('Notification' in window) || Notification.permission !== 'granted' || !document.hidden) return;
   try {
-    new Notification(alert.type === 'BILL' ? TEXT.BILL(alert.tableNumber) : TEXT.WAITER(alert.tableNumber), {
-      body: TEXT.BY(alert.by, alert.at),
-      tag: `${alert.sessionId}:${alert.type}`,
+    new Notification(p.type === 'BILL' ? TEXT.BILL(p.tableNumber) : TEXT.WAITER(p.tableNumber), {
+      body: TEXT.BY(p.by, p.at),
+      tag: p.key,
     });
   } catch { /* some mobile browsers only allow notifications from a service worker */ }
 };
+
+const pendingAlerts = (sessions: IOpenTableSession[]): Popup[] =>
+  sessions.flatMap((s) =>
+    (
+      [
+        ['WAITER', s.waiterCalled],
+        ['BILL', s.billRequested],
+      ] as const
+    )
+      .filter(([, alert]) => !!alert)
+      .map(([type, alert]) => ({
+        key: keyOf(s._id, type),
+        type,
+        tableNumber: s.tableNumber,
+        by: alert!.by,
+        at: alert!.at,
+      }))
+  );
 
 const TableAlertNotifier = ({ restaurantId, isOwner }: Props) => {
   const navigate = useNavigate();
   const [popups, setPopups] = useState<Popup[]>([]);
   const [soundReady, setSoundReady] = useState(isAlertSoundReady());
-  const popupsRef = useRef<Popup[]>([]);
-  useEffect(() => {
-    popupsRef.current = popups;
-  }, [popups]);
+  /** Latest alert time we've already shown per session+type, so the same call never pops twice. */
+  const seenRef = useRef(new Map<string, number>());
 
-  const enableSound = useCallback(async () => {
-    const ok = await unlockAlertSound();
-    setSoundReady(ok);
-    if ('Notification' in window && Notification.permission === 'default') {
-      void Notification.requestPermission();
-    }
-    return ok;
+  useEffect(() => onAlertSoundChange(setSoundReady), []);
+
+  // Ask once (on the first tap) for system notifications, used when the tab is in the background
+  useEffect(() => {
+    if (!('Notification' in window) || Notification.permission !== 'default') return;
+    const ask = () => void Notification.requestPermission();
+    window.addEventListener('click', ask, { once: true });
+    return () => window.removeEventListener('click', ask);
   }, []);
 
-  // Browsers allow sound only after a tap: unlock on the first one anywhere on the page
-  useEffect(() => {
-    if (soundReady) return;
-    const onGesture = () => void enableSound();
-    window.addEventListener('pointerdown', onGesture, { once: true });
-    window.addEventListener('keydown', onGesture, { once: true });
-    return () => {
-      window.removeEventListener('pointerdown', onGesture);
-      window.removeEventListener('keydown', onGesture);
-    };
-  }, [soundReady, enableSound]);
+  /** Show + ring for alerts not seen yet. Returns nothing; rings at most once per batch. */
+  const announce = useCallback((alerts: Popup[]) => {
+    const fresh = alerts.filter((a) => {
+      const at = new Date(a.at).getTime();
+      const seen = seenRef.current.get(a.key);
+      // Socket and DB timestamps differ by a few ms; a real new call is seconds apart
+      if (seen !== undefined && at <= seen + 5000) return false;
+      seenRef.current.set(a.key, at);
+      return true;
+    });
+    if (fresh.length === 0) return;
+    setPopups((prev) => {
+      const keys = new Set(fresh.map((f) => f.key));
+      return [...fresh, ...prev.filter((p) => !keys.has(p.key))].slice(0, MAX_POPUPS);
+    });
+    playAlertSound();
+    navigator.vibrate?.([300, 150, 300]);
+    fresh.forEach(showSystemNotification);
+  }, []);
+
+  const catchUp = useCallback(async () => {
+    try {
+      const [{ data: open }, staff] = await Promise.all([
+        getOpenTableSessions(restaurantId),
+        isOwner ? getStaff(restaurantId).then((r) => r.data.data) : Promise.resolve(null),
+      ]);
+      // Owner rings only when nobody else will: same rule the server uses for live pushes
+      if (staff && staff.some((s) => s.isActive)) return;
+      const cutoff = Date.now() - CATCH_UP_WINDOW_MS;
+      announce(pendingAlerts(open.data).filter((a) => new Date(a.at).getTime() >= cutoff));
+    } catch { /* offline — the next catch-up retries */ }
+  }, [restaurantId, isOwner, announce]);
 
   useEffect(() => {
     const socket = io({ withCredentials: true });
-    const join = () => socket.emit(SOCKET_EVENTS.JOIN_RESTAURANT_ROOM, restaurantId);
-    const onAlert = (alert: ITableAlertEvent) => {
-      if (!shouldRing(alert, isOwner)) return;
-      const key = `${alert.sessionId}:${alert.type}`;
-      setPopups((prev) => [{ ...alert, key, rings: 1 }, ...prev.filter((p) => p.key !== key)].slice(0, MAX_POPUPS));
-      playAlertSound();
-      navigator.vibrate?.([300, 150, 300]);
-      showSystemNotification(alert);
+    const onConnect = () => {
+      socket.emit(SOCKET_EVENTS.JOIN_RESTAURANT_ROOM, restaurantId);
+      void catchUp();
     };
-    socket.on('connect', join);
+    const onAlert = (alert: ITableAlertEvent) => {
+      if (isOwner && alert.notify !== 'OWNER') return;
+      announce([
+        {
+          key: keyOf(alert.sessionId, alert.type),
+          type: alert.type,
+          tableNumber: alert.tableNumber,
+          by: alert.by,
+          at: alert.at,
+        },
+      ]);
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!socket.connected) socket.connect();
+      void catchUp();
+    };
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void catchUp();
+    }, CATCH_UP_POLL_MS);
+
+    socket.on('connect', onConnect);
     socket.on(SOCKET_EVENTS.TABLE_ALERT, onAlert);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onVisible);
+    window.addEventListener('online', onVisible);
     return () => {
+      window.clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+      window.removeEventListener('online', onVisible);
       socket.emit(SOCKET_EVENTS.LEAVE_RESTAURANT_ROOM, restaurantId);
       socket.disconnect();
     };
-  }, [restaurantId, isOwner]);
-
-  // Ring again for pop-ups nobody has answered yet
-  useEffect(() => {
-    if (popups.length === 0) return;
-    const timer = window.setInterval(() => {
-      const pending = popupsRef.current.filter((p) => p.rings < MAX_RINGS);
-      if (pending.length === 0) return;
-      playAlertSound();
-      setPopups((prev) => prev.map((p) => (p.rings < MAX_RINGS ? { ...p, rings: p.rings + 1 } : p)));
-    }, REPEAT_RING_MS);
-    return () => window.clearInterval(timer);
-  }, [popups.length]);
+  }, [restaurantId, isOwner, announce, catchUp]);
 
   const dismiss = (key: string) => setPopups((prev) => prev.filter((p) => p.key !== key));
 
@@ -141,7 +199,7 @@ const TableAlertNotifier = ({ restaurantId, isOwner }: Props) => {
         </div>
       )}
       {!soundReady && (
-        <button className="alert-sound-pill" title={TEXT.SOUND_HINT} onClick={() => void enableSound().then((ok) => ok && playAlertSound())}>
+        <button className="alert-sound-pill" title={TEXT.SOUND_HINT} onClick={() => void unlockAlertSound().then((ok) => ok && playAlertSound())}>
           {TEXT.SOUND_OFF}
         </button>
       )}

@@ -9,6 +9,7 @@ import { useCustomer } from './hooks/useCustomer';
 import { useTableSession } from './hooks/useTableSession';
 import Header from './components/Header';
 import SignInCard from './components/SignInCard';
+import LocationCard from './components/LocationCard';
 import MenuTab from './components/MenuTab';
 import CartTab from './components/CartTab';
 import OrdersTab from './components/OrdersTab';
@@ -128,7 +129,10 @@ const App = () => {
         <Header menu={menu} customer={customer} session={session} onSignOut={handleSignOut} />
 
         {customer === null && <SignInCard googleUrl={googleUrl} viewOnly={!orderingEnabled} />}
-        {customer && !session && (
+        {customer && !session && table.locationProblem && (
+          <LocationCard problem={table.locationProblem} busy={table.joining} onRetry={() => void table.join()} />
+        )}
+        {customer && !session && !table.locationProblem && (
           <div className="info-card">
             {table.error ? (
               <>
