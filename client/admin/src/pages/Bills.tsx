@@ -16,7 +16,7 @@ import '../components/Billing.css';
 
 const PAGE = {
   TITLE: 'Bills',
-  SUBTITLE: 'History of all bills. To take payment: Orders → "Orders & Bill" → Generate → Cash / UPI / Card.',
+  SUBTITLE: 'History of all bills. To bill a table: Orders → "Generate Bill" → Cash / UPI / Card.',
   NO_BILLS: 'No bills yet.',
   NO_RESTAURANT: 'Register a restaurant first.',
   FILTERS: [

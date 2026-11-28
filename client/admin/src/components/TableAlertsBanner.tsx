@@ -17,7 +17,7 @@ const TEXT = {
   BILL: (n: number) => `Table #${n} asked for the bill`,
   WAITER: (n: number) => `Table #${n} called a waiter`,
   BY: (name: string, at: string) => `${name} · ${new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-  BTN_OPEN_BILL: 'Orders & Bill',
+  BTN_OPEN_BILL: 'Generate Bill',
   BTN_DONE: 'Done',
   BTN_CLEAR: 'Clear table',
   OCCUPIED: 'Tables with diners on the menu',
@@ -34,7 +34,7 @@ const TEXT = {
 
 interface Props {
   restaurantId: string;
-  /** Opens the table's Orders & Bill modal. */
+  /** Opens the table's bill modal (orders + Generate Bill). */
   onOpenBill: (tableId: string, tableNumber: number) => void;
 }
 

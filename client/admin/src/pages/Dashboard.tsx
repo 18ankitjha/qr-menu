@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ROUTES, SETUP_STEPS } from '../constants';
 import { FALLBACK_POLL_MS, RESTAURANT_EVENTS, restaurantRoom, useLiveRefresh } from '../realtime';
 import './Dashboard.css';
@@ -41,7 +41,7 @@ const DASHBOARD_CONSTANTS = {
   },
   JUST_DONE_TITLE: '🎉 Your setup is complete!',
   JUST_DONE_BODY: 'Customers can now scan your table QRs and order. A few more things you can configure:',
-  JUST_DONE_DISMISS: 'Dismiss',
+  JUST_DONE_DISMISS: 'Go to Orders',
 } as const;
 
 /** Shown once, right after the last Quick Setup step is saved. */
@@ -55,11 +55,11 @@ const NEXT_THINGS = [
 const APPROVAL_PUSHES = [RESTAURANT_EVENTS.RESTAURANT_UPDATED] as const;
 
 const Dashboard = () => {
-  const { user, restaurant, menu, setup, refreshSetup } = useAuth();
+  const { user, restaurant, menu, setup, isSetupComplete, refreshSetup } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const justCompleted = !!(location.state as { setupJustCompleted?: boolean } | null)?.setupJustCompleted;
-  const dismissJustCompleted = () => navigate(location.pathname, { replace: true, state: null });
+  const dismissJustCompleted = () => navigate(ROUTES.ORDERS, { replace: true });
 
   useEffect(() => {
     refreshSetup();
@@ -79,6 +79,11 @@ const Dashboard = () => {
   const totalSteps = setup?.totalSteps ?? SETUP_STEPS.length;
   // Restaurants registered before onboarding approval have no status and are live
   const restaurantStatus = restaurant ? restaurant.status ?? 'ACTIVE' : null;
+
+  // After setup the Dashboard is only the one-time 'setup complete' screen; otherwise go to Orders
+  if (isSetupComplete && !justCompleted) {
+    return <Navigate to={ROUTES.ORDERS} replace />;
+  }
 
   return (
     <div className="dashboard">

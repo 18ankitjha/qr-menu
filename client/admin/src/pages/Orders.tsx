@@ -45,7 +45,7 @@ const PAGE = {
   ITEM_SEPARATOR: ' × ',
   CURRENCY: '₹',
   STATUS_UPDATED: 'Order status updated!',
-  TABLE_BILL: 'Orders & Bill',
+  TABLE_BILL: 'Generate Bill',
   TABLE: (n: number) => `Table #${n}`,
   ORDER_COUNT: (n: number) => `${n} order${n !== 1 ? 's' : ''}`,
   CUSTOMERS: (names: string) => `👤 ${names}`,

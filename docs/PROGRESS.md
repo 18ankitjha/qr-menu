@@ -765,6 +765,13 @@ order. Dish details are cached 60 s (`DISH_CACHE_MS`).
   READY, CANNOT_DELIVER stay in the enum for old orders (they can still be closed); old transition map kept
   commented in `order.dm.ts`. Kitchen shows a single "New" column.
 - **Tables & QR card:** only Download QR (or Retry QR), 🔄 Regenerate, 🗑️ Delete. Take order / bills live on Orders.
+- **"Generate Bill" button:** the Orders (Current tab) and bill-request alert button is now "Generate Bill" (was
+  "Orders & Bill").
+- **Dashboard only during setup:** it is the Quick Setup guide, so once setup is complete it leaves the sidebar and
+  `/` opens Orders. It still shows once, right after the last step, as the "setup complete" screen ("Go to Orders").
+- **Simpler category adding:** "+ Add Category" always makes a top-level category; ➕ on a row adds inside that row (no
+  parent picker). Only Edit has "Move inside" to move a category. Customer menu titles sub-category sections with
+  their parent ("Pizza · Italian") so it's clear they belong to that tab.
 
 ---
 

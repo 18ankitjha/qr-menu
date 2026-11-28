@@ -59,15 +59,13 @@ export const buildMenuTree = (cats: ICategoryWithDishes[], keepDish: (dish: IDis
 export const treeDepth = (nodes: IMenuNode[]): number =>
   nodes.length === 0 ? 0 : 1 + Math.max(...nodes.map((n) => treeDepth(n.children)));
 
-/** Every dish-holding category in a branch, in menu order. Deeper ones are titled "Italian · Pastas". */
+/** Every dish-holding category in a branch, in menu order. Sub-categories carry their parent's name ("Pizza · Italian") so it's clear where they belong. */
 const sectionsOf = (node: IMenuNode, tabId: string, prefix = ''): IMenuSection[] => {
   const name = prefix ? `${prefix} · ${node.cat.name}` : node.cat.name;
   const own: IMenuSection[] = node.dishes.length
     ? [{ id: node.cat._id, name, description: node.cat.description, dishes: node.dishes, tabId }]
     : [];
-  // Children of the tab itself keep their plain name; anything deeper gets its parent as context
-  const childPrefix = node.cat._id === tabId ? '' : node.cat.name;
-  return [...own, ...node.children.flatMap((child) => sectionsOf(child, tabId, childPrefix))];
+  return [...own, ...node.children.flatMap((child) => sectionsOf(child, tabId, node.cat.name))];
 };
 
 /** Tabs for the categories under `parent` (or the top level). The parent's own dishes get the first tab. */

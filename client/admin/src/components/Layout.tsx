@@ -11,6 +11,7 @@ import './Layout.css';
 // Admin Layout — Sidebar + Content Area
 // Until the owner finishes Quick Setup the sidebar shows only the Dashboard, so it's obvious
 // where to go next; the Dashboard (and the step banner) walk them through the steps.
+// After setup the Dashboard is hidden and `/` opens Orders.
 // ============================================================
 
 const LAYOUT_TEXT = {
@@ -41,7 +42,8 @@ const Layout = () => {
 
   const navItems = NAV_ITEMS
     .filter((item) => isOwner || !item.ownerOnly)
-    .filter((item) => isSetupComplete || item.path === ROUTES.DASHBOARD);
+    // Dashboard is only the Quick Setup guide: shown alone during setup, hidden once setup is done
+    .filter((item) => (isSetupComplete ? item.path !== ROUTES.DASHBOARD : item.path === ROUTES.DASHBOARD));
 
   const closeDrawer = () => setDrawerOpen(false);
 

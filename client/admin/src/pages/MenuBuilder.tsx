@@ -41,8 +41,8 @@ const PAGE = {
   CATEGORY_NAME: 'Category Name',
   CATEGORY_DESC: 'Description (optional)',
   CATEGORY_IMAGE: 'Category image (optional — shown on the customer menu)',
-  PARENT_CATEGORY: 'Inside category (optional)',
-  PARENT_HINT: 'Leave as top level, or put it inside another category to make it a sub-category.',
+  PARENT_CATEGORY: 'Move inside',
+  PARENT_HINT: 'Moves this category (and everything inside it) under another category, or back to the top level.',
   TOP_LEVEL: '— Top level —',
   ADD_SUB: 'Add sub-category',
   ADD_SUB_TITLE: (parent: string) => `Add sub-category in ${parent}`,
@@ -533,7 +533,7 @@ const MenuBuilder = () => {
           <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={handleSaveCategory}>
             <h2 className="card-title">
               {!editingCat && catForm.parentId
-                ? PAGE.ADD_SUB_TITLE(treeRows.find((r) => r.cat._id === catForm.parentId)?.cat.name ?? '')
+                ? PAGE.ADD_SUB_TITLE(treeRows.find((r) => r.cat._id === catForm.parentId)?.path.join(' › ') ?? '')
                 : `${editingCat ? MESSAGES.EDIT : MESSAGES.ADD} Category`}
             </h2>
             <div className="form-group">
@@ -544,16 +544,19 @@ const MenuBuilder = () => {
               <label className="form-label">{PAGE.CATEGORY_DESC}</label>
               <textarea className="form-textarea" value={catForm.description} onChange={(e) => setCatForm((p) => ({ ...p, description: e.target.value }))} />
             </div>
-            <div className="form-group">
-              <label className="form-label">{PAGE.PARENT_CATEGORY}</label>
-              <select className="form-input" value={catForm.parentId} onChange={(e) => setCatForm((p) => ({ ...p, parentId: e.target.value }))}>
-                <option value="">{PAGE.TOP_LEVEL}</option>
-                {parentOptions.map((r) => (
-                  <option key={r.cat._id} value={r.cat._id}>{r.path.join(' › ')}</option>
-                ))}
-              </select>
-              <p className="form-hint">{PAGE.PARENT_HINT}</p>
-            </div>
+            {/* Add Category = top level, ➕ on a row = inside that row; only editing can move a category */}
+            {editingCat && (
+              <div className="form-group">
+                <label className="form-label">{PAGE.PARENT_CATEGORY}</label>
+                <select className="form-input" value={catForm.parentId} onChange={(e) => setCatForm((p) => ({ ...p, parentId: e.target.value }))}>
+                  <option value="">{PAGE.TOP_LEVEL}</option>
+                  {parentOptions.map((r) => (
+                    <option key={r.cat._id} value={r.cat._id}>{r.path.join(' › ')}</option>
+                  ))}
+                </select>
+                <p className="form-hint">{PAGE.PARENT_HINT}</p>
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">{PAGE.CATEGORY_IMAGE}</label>
               <input
