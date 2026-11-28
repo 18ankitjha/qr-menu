@@ -170,7 +170,15 @@ const App = () => {
   return (
     <div className="menu-app" style={themeVars}>
       <div className="menu-shell">
-        <Header menu={menu} customer={customer} session={session} onSignOut={handleSignOut} />
+        <Header
+          menu={menu}
+          customer={customer}
+          session={session}
+          waiter={
+            session?.status === 'OPEN' ? { cooldown: waiterCooldown, busy, onCall: callWaiter } : undefined
+          }
+          onSignOut={handleSignOut}
+        />
 
         {customer === null && <SignInCard googleUrl={googleUrl} viewOnly={!orderingEnabled} />}
         {customer && !session && table.locationProblem && (
@@ -199,13 +207,6 @@ const App = () => {
               <div className="info-card view-only-card">
                 <strong>{MESSAGES.VIEW_ONLY_TITLE}</strong>
                 <span>{MESSAGES.VIEW_ONLY_DESC}</span>
-                {session?.status === 'OPEN' && (
-                  <button className="btn-secondary" disabled={busy || waiterCooldown > 0} onClick={callWaiter}>
-                    {waiterCooldown > 0
-                      ? `${MESSAGES.WAITER_CALLED} · ${MESSAGES.ASK_AGAIN_IN(waiterCooldown)}`
-                      : MESSAGES.BTN_CALL_WAITER}
-                  </button>
-                )}
               </div>
             )}
             {currentTab === 'menu' && (
@@ -236,11 +237,9 @@ const App = () => {
                   session={session}
                   busy={busy}
                   billCooldown={billCooldown}
-                  waiterCooldown={waiterCooldown}
                   onRequestBill={() =>
                     void act((id) => TableSessionApi.requestBill(id), MESSAGES.BILL_REQUESTED)
                   }
-                  onCallWaiter={callWaiter}
                 />
               ) : (
                 <SignInCard googleUrl={googleUrl} compact viewOnly={!orderingEnabled} />

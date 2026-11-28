@@ -9,33 +9,28 @@ interface Props {
   busy: boolean;
   /** Seconds before the table may ask again (server-enforced 5-minute gap). */
   billCooldown: number;
-  waiterCooldown: number;
   onRequestBill: () => void;
-  onCallWaiter: () => void;
 }
 
-const label = (done: string, at: string | null, cooldown: number, idle: string): string => {
-  if (cooldown > 0) return `${done} · ${MESSAGES.ASK_AGAIN_IN(cooldown)}`;
-  return at ? `${done} · ${timeOf(at)}` : idle;
+const billLabel = (at: string | null, cooldown: number): string => {
+  if (cooldown > 0) return `${MESSAGES.BILL_REQUESTED} · ${MESSAGES.ASK_AGAIN_IN(cooldown)}`;
+  return at ? `${MESSAGES.BILL_REQUESTED} · ${timeOf(at)}` : MESSAGES.BTN_REQUEST_BILL;
 };
 
-/** Orders so far, the running bill, and buttons to ask for the bill / a waiter. */
-const OrdersTab = ({ session, busy, billCooldown, waiterCooldown, onRequestBill, onCallWaiter }: Props) => (
+/** Orders so far, the running bill, and a button to ask for the bill (Call waiter is in the header). */
+const OrdersTab = ({ session, busy, billCooldown, onRequestBill }: Props) => (
   <>
+    <OrderList orders={session.orders} />
+    <BillCard session={session} />
     <div className="alert-actions">
       <button
         className="btn-secondary"
         disabled={busy || billCooldown > 0 || session.orders.length === 0}
         onClick={onRequestBill}
       >
-        {label(MESSAGES.BILL_REQUESTED, session.billRequestedAt, billCooldown, MESSAGES.BTN_REQUEST_BILL)}
-      </button>
-      <button className="btn-secondary" disabled={busy || waiterCooldown > 0} onClick={onCallWaiter}>
-        {label(MESSAGES.WAITER_CALLED, session.waiterCalledAt, waiterCooldown, MESSAGES.BTN_CALL_WAITER)}
+        {billLabel(session.billRequestedAt, billCooldown)}
       </button>
     </div>
-    <OrderList orders={session.orders} />
-    <BillCard session={session} />
   </>
 );
 

@@ -41,7 +41,7 @@ const PAGE = {
     PRIMARY: 'Primary Color',
     SECONDARY: 'Secondary Color',
     BACKGROUND: 'Background Color',
-    BG_IMAGE: 'Background Image',
+    BG_IMAGE: 'Cover Image',
     FONT: 'Font Family',
     LAYOUT: 'Menu Layout',
     LOGO: 'Restaurant Logo',
@@ -287,7 +287,7 @@ const CustomerMenuSettings = () => {
         {/* Background Image */}
         <div className="form-group">
           <label className="form-label">{PAGE.FIELDS.BG_IMAGE}</label>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 8px' }}>Optional background image overlaid on the background color.</p>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 8px' }}>Optional cover photo shown behind your restaurant name at the top of the menu. The rest of the page uses the background color.</p>
           <input
             type="file"
             accept="image/*"
@@ -345,9 +345,6 @@ const CustomerMenuSettings = () => {
         <p className="card-subtitle" style={{ marginBottom: 16 }}>{PAGE.PREVIEW_DESC}</p>
         <div style={{
           background: theme.backgroundColor,
-          backgroundImage: theme.backgroundImageUrl ? `url(${theme.backgroundImageUrl})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
           fontFamily: theme.fontFamily,
           borderRadius: 12,
           padding: 20,
@@ -356,12 +353,24 @@ const CustomerMenuSettings = () => {
           flexDirection: 'column',
           gap: 12,
         }}>
-          {/* Restaurant header with logo */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          {/* Restaurant header with logo (over the cover image, like the customer menu) */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            ...(theme.backgroundImageUrl && {
+              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.7)), url(${theme.backgroundImageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              margin: '-20px -20px 0',
+              padding: '56px 20px 14px',
+              borderRadius: '12px 12px 0 0',
+            }),
+          }}>
             {restaurant?.logoUrl && (
-              <img src={restaurant.logoUrl} alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 8 }} />
+              <img src={restaurant.logoUrl} alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 8, background: '#fff' }} />
             )}
-            <div style={{ fontSize: 20, fontWeight: 800, color: theme.primaryColor }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: theme.backgroundImageUrl ? '#fff' : '#111827' }}>
               {restaurant?.name || 'Your Restaurant'}
             </div>
           </div>

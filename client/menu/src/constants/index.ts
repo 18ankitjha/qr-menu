@@ -80,7 +80,7 @@ const MESSAGES = {
   SIGN_OUT: 'Sign out',
 
   VIEW_ONLY_TITLE: '👀 Browse the menu',
-  VIEW_ONLY_DESC: 'Your waiter will take your order. Tap below when you are ready.',
+  VIEW_ONLY_DESC: 'Your waiter will take your order. Tap “Call waiter” at the top when you are ready.',
 
   TAB_MENU: 'Menu',
   TAB_CART: 'Table cart',
@@ -108,9 +108,11 @@ const MESSAGES = {
 
   NO_ORDERS: 'Nothing ordered yet.',
   BTN_REQUEST_BILL: '🧾 Request bill',
-  BTN_CALL_WAITER: '🙋 Call waiter',
+  BTN_CALL_WAITER: 'Call waiter',
   BILL_REQUESTED: 'Bill requested',
   WAITER_CALLED: 'Waiter called',
+  /** Header button while the 5-minute gap runs: "Called · 4:32". */
+  WAITER_CALLED_SHORT: 'Called',
   ASK_AGAIN_IN: (seconds: number) =>
     `again in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`,
   SOME_UNAVAILABLE: 'Some dishes are no longer available and were left out of the cart.',
@@ -127,6 +129,8 @@ const MESSAGES = {
 
   CURRENCY: '₹',
   YOU: 'you',
+  YOU_CAPITAL: 'You',
+  TABLE: (n: number) => `Table ${n}`,
   WAITER: 'waiter',
   ALL: 'All',
 } as const;

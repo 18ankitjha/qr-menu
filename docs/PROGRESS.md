@@ -699,6 +699,21 @@ order. Dish details are cached 60 s (`DISH_CACHE_MS`).
 - **Billed orders.** Orders with a `billId` (Billed / Completed tabs) show no Confirmed / Cancelled / status
   buttons. Current orders keep them.
 
+### 6d.16 Cleaner customer menu (phone first)
+
+- **Header:** one row with logo, restaurant name, "Table 5 · label" and a small 🔔 **Call waiter** button
+  (shows "Called · 4:32" during the 5-minute gap). Below it, small overlapping avatars of who's at the table, plus
+  Sign out. Call waiter moved out of Orders & bill and out of the view-only card.
+- **Background image is now a cover photo** behind the header (dark gradient, white text). The rest of the page
+  uses the plain background colour. Admin's Customer Menu settings call it "Cover Image" (preview updated).
+- **Sticky bar:** search field + Veg / Non-veg, then text-only category tabs. The tab for the section you're
+  reading is highlighted and scrolled into view; tapping a tab scrolls to that section. Category images are
+  no longer shown to diners.
+- **Sections:** plain heading + dish count (tap to collapse), grey divider between categories, no cards.
+- **Dish rows:** veg mark and tags, name, price, 2-line description on the left; photo on the right with
+  ADD / − n + on its bottom edge (no photo → button on the right).
+- **Bottom tabs:** line icons instead of emoji.
+
 ---
 
 ## 7. Decisions made
