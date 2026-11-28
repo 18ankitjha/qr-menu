@@ -8,6 +8,7 @@ import { reconnectNow } from '../realtime/rooms';
 //   • A push from SOMEONE ELSE → refetch if the Cart / Orders tab is on screen; on the Menu tab it only
 //     marks the table "stale", and opening Cart / Orders refetches once.
 //   • A push caused by THIS diner is skipped — the response to their own action already updated the screen.
+//   • The cart is NOT handled here: it has its own room and arrives with the data (see live-cart/).
 //   • (Re)joining the room / coming back to the tab / network back → catch up the same way.
 //   • Polls only while the live connection is down, and only while the table is on screen.
 // ============================================================
@@ -15,7 +16,7 @@ import { reconnectNow } from '../realtime/rooms';
 /** What the server pushes to a table's room (server: ITableSignal). */
 interface TableSignal {
   tableId?: string;
-  /** The diner (customer id) whose action caused it. */
+  /** Member key of the diner whose action caused it. */
   by?: string;
 }
 
@@ -24,8 +25,8 @@ interface Options {
   tableId?: string;
   /** The Cart / Orders tab is on screen. */
   visible: boolean;
-  /** This diner's customer id — their own pushes are skipped. */
-  myId?: string;
+  /** This diner's member key — their own pushes are skipped. */
+  me?: string;
   /** Shared with useTableSession: true = the table changed since we last fetched it. */
   staleRef: RefObject<boolean>;
   /** Refetch the table (stable). */
@@ -35,11 +36,11 @@ interface Options {
 const DEBOUNCE_MS = 300;
 
 /** Returns whether pushes are arriving (live) for this table. */
-export const useTableSync = ({ tableId, visible, myId, staleRef, refresh }: Options): boolean => {
+export const useTableSync = ({ tableId, visible, me, staleRef, refresh }: Options): boolean => {
   const live = useRoom(tableRoom(tableId));
-  const latest = useRef({ visible, myId, refresh });
+  const latest = useRef({ visible, me, refresh });
   useEffect(() => {
-    latest.current = { visible, myId, refresh };
+    latest.current = { visible, me, refresh };
   });
 
   /** Refetch now if the diner is looking at the table, otherwise just remember it is out of date. */
@@ -58,7 +59,7 @@ export const useTableSync = ({ tableId, visible, myId, staleRef, refresh }: Opti
     TABLE_EVENTS.TABLE_SESSION_UPDATED,
     (signal) => {
       if (signal?.tableId && signal.tableId !== tableId) return;
-      if (signal?.by && signal.by === latest.current.myId) return;
+      if (signal?.by && signal.by === latest.current.me) return;
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(pull, DEBOUNCE_MS);
     },

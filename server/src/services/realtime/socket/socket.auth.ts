@@ -1,12 +1,15 @@
 import { Socket } from 'socket.io';
 import { authContextFromToken } from '../../auth/middlewares/auth.middleware';
-import { AUTH_COOKIE } from '../../auth/constants/auth.constants';
+import { AUTH_COOKIE, CUSTOMER_COOKIE } from '../../auth/constants/auth.constants';
+import { isCustomerPayload, verifyToken } from '../../auth/utils/token.util';
 import { ISocketData } from '../interfaces/realtime.interface';
 
 // ============================================================
-// Socket handshake auth — reads the owner/staff login cookie once, when the browser connects.
-// Never rejects the connection: diners and the kitchen board connect without it.
-// Rooms that need a login (restaurant:<id>) check `socket.data.auth` when joining.
+// Socket handshake auth — reads the login cookies once, when the browser connects:
+//   owner/staff cookie → socket.data.auth      (restaurant:<id> rooms)
+//   diner cookie       → socket.data.customer  (cart:<sessionId> rooms)
+// Never rejects the connection: guests and the kitchen board connect without either.
+// Rooms that need a login check these when joining.
 // ============================================================
 
 const readCookie = (header: string | undefined, name: string): string | undefined => {
@@ -21,6 +24,10 @@ const readCookie = (header: string | undefined, name: string): string | undefine
 export const socketAuthMiddleware = (socket: Socket, next: (err?: Error) => void): void => {
   const bearer = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : undefined;
   const token = bearer ?? readCookie(socket.handshake.headers.cookie, AUTH_COOKIE.NAME);
-  (socket.data as ISocketData).auth = authContextFromToken(token);
+  const data = socket.data as ISocketData;
+  data.auth = authContextFromToken(token);
+
+  const diner = verifyToken(readCookie(socket.handshake.headers.cookie, CUSTOMER_COOKIE.NAME));
+  data.customer = diner && isCustomerPayload(diner) ? { customerId: diner.customerId, name: diner.name } : null;
   next();
 };

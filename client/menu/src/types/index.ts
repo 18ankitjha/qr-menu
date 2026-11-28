@@ -57,14 +57,32 @@ interface ICustomer {
 
 type SessionStatus = 'OPEN' | 'CLOSED';
 
+/** A line of the live table cart. key = `<member key of who added it>.<dishId>` — one line per diner per dish. */
 interface ICartLine {
-  _id: string;
+  key: string;
   dishId: string;
   dishName: string;
   price: number;
   quantity: number;
   notes?: string;
-  addedBy: { name: string; isMe: boolean };
+  /** Name of the diner who added it. */
+  by: string;
+}
+
+/** The live cart as the server pushes it (socket `cart_updated`). Newer version wins. */
+interface ICartState {
+  sessionId: string;
+  version: number;
+  lines: ICartLine[];
+  total: number;
+  /** Member key of whoever made this change. */
+  changedBy?: string;
+}
+
+/** Set a cart line to `quantity` (0 removes it). */
+interface ICartChange {
+  key: string;
+  quantity: number;
 }
 
 interface ISessionOrder {
@@ -86,10 +104,14 @@ interface ITableSession {
   restaurantId: string;
   tableId: string;
   tableNumber: number;
+  /** This diner's member key: cart lines whose key starts with `<me>.` are theirs. */
+  me: string;
   members: { name: string; profilePicture?: string; isMe: boolean }[];
   cart: ICartLine[];
   cartVersion: number;
   cartTotal: number;
+  /** Only on PUT cart/sync: dishes that could not be added (no longer available). */
+  cartSkipped?: string[];
   billRequestedAt: string | null;
   waiterCalledAt: string | null;
   /** Time left (ms, at response time) before the table can ask again. */
@@ -143,12 +165,6 @@ interface IGpsCoordinates {
 
 type TabId = 'menu' | 'cart' | 'orders';
 
-/** Quantity this diner wants of a dish on their own cart line (0 = remove). */
-interface IMyCartItem {
-  dishId: string;
-  quantity: number;
-}
-
 export type {
   IMenuTheme,
   IDish,
@@ -158,7 +174,8 @@ export type {
   ICustomer,
   SessionStatus,
   ICartLine,
-  IMyCartItem,
+  ICartState,
+  ICartChange,
   ISessionOrder,
   ITableSession,
   IBillTotals,

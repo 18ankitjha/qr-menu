@@ -10,9 +10,19 @@
 // ============================================================
 
 export { initializeRealtime } from './socket/socket.server';
+export type { SocketHandler } from './socket/socket.server';
 export * as OrderPublisher from './publishers/order.publisher';
 export * as BillPublisher from './publishers/bill.publisher';
 export * as TablePublisher from './publishers/table.publisher';
+export * as CartPublisher from './publishers/cart.publisher';
 export * as RestaurantPublisher from './publishers/restaurant.publisher';
-export { CLIENT_EVENTS, RESTAURANT_EVENTS, TABLE_EVENTS, ROOMS } from './constants/realtime.constants';
+export {
+  CLIENT_EVENTS,
+  RESTAURANT_EVENTS,
+  TABLE_EVENTS,
+  CART_EVENTS,
+  ROOMS,
+  REALTIME_ERRORS,
+  isRoomId,
+} from './constants/realtime.constants';
 export type * from './interfaces/realtime.interface';

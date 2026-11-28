@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from '../constants';
-import type { ICustomer, IDinerBill, IGpsCoordinates, IMyCartItem, ITableLink, ITableMenu, ITableSession } from '../types';
-import { getData, patchData, postData, putData } from './http';
+import type { ICartChange, ICustomer, IDinerBill, IGpsCoordinates, ITableLink, ITableMenu, ITableSession } from '../types';
+import { getData, postData, putData } from './http';
 
 // ============================================================
 // Table Session API — the menu, joining the table, the shared cart, ordering, alerts and the bill
@@ -22,15 +22,9 @@ export const joinTable = (link: ITableLink, gpsCoordinates?: IGpsCoordinates) =>
 
 export const getSession = (sessionId: string) => getData<ITableSession>(API_ENDPOINTS.GET_SESSION(sessionId));
 
-export const addToCart = (sessionId: string, dishId: string, quantity = 1) =>
-  postData<ITableSession>(API_ENDPOINTS.CART_ADD(sessionId), { dishId, quantity });
-
-export const setCartQuantity = (sessionId: string, itemId: string, quantity: number) =>
-  patchData<ITableSession>(API_ENDPOINTS.CART_SET_QUANTITY(sessionId), { itemId, quantity });
-
-/** Send this diner's menu-page picks (dish → quantity of their own line) in one call. */
-export const setMyCart = (sessionId: string, items: IMyCartItem[]) =>
-  putData<ITableSession>(API_ENDPOINTS.CART_SET_MINE(sessionId), { items });
+/** Cart tab opened (or no live connection): apply edits still on this phone and save the cart. Taps use the socket. */
+export const syncCart = (sessionId: string, changes: ICartChange[]) =>
+  putData<ITableSession>(API_ENDPOINTS.CART_SYNC(sessionId), { changes });
 
 export const placeOrder = (sessionId: string, cartVersion: number, specialInstructions?: string) =>
   postData<ITableSession>(API_ENDPOINTS.PLACE_ORDER(sessionId), { cartVersion, specialInstructions });

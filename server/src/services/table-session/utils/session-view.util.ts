@@ -1,37 +1,38 @@
 import { IOrder } from '../../order';
+import { ICartState } from '../../realtime';
 import { ITableSession } from '../interfaces/table-session.interface';
 import { TableAlertType } from '../constants/table-session.constants';
 import { alertCooldownLeftMs } from '../dm/table-session.dm';
+import { memberKey } from '../../live-cart/utils/member-key.util';
 
 // ============================================================
 // Session views — what diners and staff get back (no other diners' ids / emails).
 // ============================================================
 
-const round2 = (n: number): number => Math.round(n * 100) / 100;
-
-/** A diner's view of their table: who is here, the live shared cart, and the table's orders. */
-export const toDinerView = (session: ITableSession, orders: IOrder[], customerId: string) => ({
+/**
+ * A diner's view of their table: who is here, the live shared cart, and the table's orders.
+ * `me` = this diner's member key: cart lines whose key starts with `<me>.` are theirs.
+ */
+export const toDinerView = (
+  session: ITableSession,
+  orders: IOrder[],
+  customerId: string,
+  cart: ICartState | null
+) => ({
   _id: session._id.toString(),
   status: session.status,
   restaurantId: session.restaurantId.toString(),
   tableId: session.tableId.toString(),
   tableNumber: session.tableNumber,
+  me: memberKey(session._id.toString(), customerId),
   members: session.members.map((m) => ({
     name: m.name,
     profilePicture: m.profilePicture,
     isMe: m.customerId.toString() === customerId,
   })),
-  cart: session.cart.map((l) => ({
-    _id: l._id.toString(),
-    dishId: l.dishId.toString(),
-    dishName: l.dishName,
-    price: l.price,
-    quantity: l.quantity,
-    notes: l.notes,
-    addedBy: { name: l.addedBy.name, isMe: l.addedBy.customerId.toString() === customerId },
-  })),
-  cartVersion: session.cartVersion,
-  cartTotal: round2(session.cart.reduce((sum, l) => sum + l.price * l.quantity, 0)),
+  cart: cart?.lines ?? [],
+  cartVersion: cart?.version ?? session.cartVersion,
+  cartTotal: cart?.total ?? 0,
   billRequestedAt: session.billRequested?.at ?? null,
   waiterCalledAt: session.waiterCalled?.at ?? null,
   /** Time left before the table may ask again (the phone counts down from when it got this). */

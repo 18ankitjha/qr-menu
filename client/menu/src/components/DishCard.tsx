@@ -5,8 +5,10 @@ import { thumbUrl } from '../utils/image.util';
 
 interface Props {
   dish: IDish;
-  /** How many of this dish others at the table (or this diner, with notes) already have in the cart. */
+  /** How many of this dish others at the table already have in the cart. */
   othersQuantity: number;
+  /** Who those others are (first names shown on the card). */
+  othersNames?: string[];
   /** This diner's own plain quantity — the −/+ control edits it. */
   myQuantity: number;
   /** false on a view-only menu: no Add / quantity buttons. */
@@ -15,7 +17,7 @@ interface Props {
   onRemoveOne: () => void;
 }
 
-const DishCard = ({ dish, othersQuantity, myQuantity, canAdd, onAdd, onRemoveOne }: Props) => {
+const DishCard = ({ dish, othersQuantity, othersNames = [], myQuantity, canAdd, onAdd, onRemoveOne }: Props) => {
   const details = [
     dish.spiceLevel && dish.spiceLevel !== 'NONE' ? `🌶️ ${dish.spiceLevel.toLowerCase()}` : '',
     dish.servingSize ? `🍽️ ${dish.servingSize}` : '',
@@ -43,7 +45,9 @@ const DishCard = ({ dish, othersQuantity, myQuantity, canAdd, onAdd, onRemoveOne
             </span>
           ))}
         </div>
-        {canAdd && othersQuantity > 0 && <p className="dish-others">+{othersQuantity} added by others at your table</p>}
+        {canAdd && othersQuantity > 0 && (
+          <p className="dish-others">{MESSAGES.ADDED_BY_OTHERS(othersQuantity, othersNames)}</p>
+        )}
       </div>
       {canAdd && (
         <div className="dish-cart-action">

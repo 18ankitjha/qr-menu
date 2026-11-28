@@ -13,7 +13,10 @@ import { attachScalingAdapter } from './scaling.adapter';
 
 let io: SocketIOServer | null = null;
 
-export const initializeRealtime = (server: http.Server): SocketIOServer => {
+/** Extra socket events owned by other services (e.g. the live cart), wired in at startup by server.ts. */
+export type SocketHandler = (socket: Socket) => void;
+
+export const initializeRealtime = (server: http.Server, options: { handlers?: SocketHandler[] } = {}): SocketIOServer => {
   io = new SocketIOServer(server, {
     cors: { origin: CLIENT_ORIGINS, credentials: true },
     // Phones drop idle connections; a ping every 25s notices a dead link within ~45s
@@ -23,8 +26,10 @@ export const initializeRealtime = (server: http.Server): SocketIOServer => {
 
   io.use(socketAuthMiddleware);
   io.on('connection', (socket: Socket) => {
-    logger.debug(`[realtime] connected ${socket.id} (${socket.data.auth ? 'staff' : 'guest'})`);
+    const who = socket.data.auth ? 'staff' : socket.data.customer ? 'diner' : 'guest';
+    logger.debug(`[realtime] connected ${socket.id} (${who})`);
     registerRoomHandlers(socket);
+    options.handlers?.forEach((register) => register(socket));
     socket.on('disconnect', (reason) => logger.debug(`[realtime] disconnected ${socket.id}: ${reason}`));
   });
 

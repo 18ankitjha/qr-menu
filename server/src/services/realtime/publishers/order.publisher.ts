@@ -28,7 +28,7 @@ const toStaffAndKitchen = (order: IOrderLike, event: string, by?: string) => {
   tableChanged(restaurantId, order.tableId.toString(), by);
 };
 
-/** A new order (diners' cart or a waiter). `by` = the diner who sent it, if a diner did. */
+/** A new order (diners' cart or a waiter). `by` = member key of the diner who sent it, if a diner did. */
 export const orderPlaced = (order: IOrderLike, by?: string): void =>
   toStaffAndKitchen(order, RESTAURANT_EVENTS.NEW_ORDER, by);
 

@@ -13,7 +13,7 @@ export interface ISessionMember {
   joinedAt: Date;
 }
 
-/** One line of the shared cart. Same dish added by two people = two lines (so each is credited). */
+/** One line of the shared cart's DB snapshot (the live copy is in the live-cart service). */
 export interface ICartLine {
   _id: Types.ObjectId;
   dishId: Types.ObjectId;
@@ -38,7 +38,7 @@ export interface ITableSession {
   status: TableSessionStatus;
   members: ISessionMember[];
   cart: ICartLine[];
-  /** Bumped on every cart change; placing an order must quote the version the diner looked at. */
+  /** Version of the cart snapshot (the live cart's version when it was saved). */
   cartVersion: number;
   billRequested?: ISessionAlert | null;
   waiterCalled?: ISessionAlert | null;
@@ -62,16 +62,16 @@ export interface IJoinSessionInput {
   gpsCoordinates?: IGpsCoordinates;
 }
 
-export interface IAddToCartInput {
+/** A cart line as the live-cart service hands it over for a DB snapshot. */
+export interface ICartSnapshotLine {
+  customerId: string;
+  name: string;
   dishId: string;
+  dishName: string;
+  price: number;
   quantity: number;
   notes?: string;
-}
-
-/** The quantity a diner wants of a dish on their own plain (no notes) cart line. 0 removes it. */
-export interface IMyCartItem {
-  dishId: string;
-  quantity: number;
+  addedAt: number;
 }
 
 export interface IDiner {

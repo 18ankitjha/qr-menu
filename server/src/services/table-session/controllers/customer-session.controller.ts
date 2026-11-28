@@ -2,29 +2,48 @@ import { Request, Response } from 'express';
 import { ERROR_MESSAGES } from '../../../config/constants';
 import { sendSuccess } from '../../../utils/response.util';
 import { asyncHandler, createAppError } from '../../../middlewares/error.middleware';
-import { OrderPublisher, TablePublisher } from '../../realtime';
+import { ICartState, OrderPublisher, TablePublisher } from '../../realtime';
 import { CustomerDM } from '../../auth';
-import { MenuDM, PublicMenuDM } from '../../menu';
+import { LiveCartDM, memberKey } from '../../live-cart';
+import { PublicMenuDM } from '../../menu';
 import { RestaurantDM } from '../../restaurant';
 import { StaffDM } from '../../staff';
 import { ITable } from '../../table';
 import * as TableSessionDM from '../dm/table-session.dm';
 import { IDiner, ITableRef, ITableSession } from '../interfaces/table-session.interface';
-import { AlertAudience, TABLE_SESSION_MESSAGES, TableAlertType } from '../constants/table-session.constants';
+import {
+  AlertAudience,
+  TABLE_SESSION_MESSAGES,
+  TableAlertType,
+  TableSessionStatus,
+} from '../constants/table-session.constants';
 import { assertNearRestaurant } from '../utils/proximity.util';
 import { toDinerView } from '../utils/session-view.util';
 
 // ============================================================
-// Customer Session Controller — what a diner's phone calls after scanning a table QR
+// Customer Session Controller — what a diner's phone calls after scanning a table QR.
+// Cart taps go over the socket (live-cart service); these REST calls cover joining, opening the Cart tab,
+// ordering and alerts.
 // ============================================================
 
 const sessionId = (req: Request): string => req.params.sessionId as string;
 
 const dinerOf = (req: Request): IDiner => ({ customerId: req.customer!.customerId, name: req.customer!.name });
 
-const sendView = async (res: Response, session: ITableSession, customerId: string, message: string, status = 200) => {
-  const orders = await TableSessionDM.getSessionOrders(session);
-  sendSuccess(res, toDinerView(session, orders, customerId), message, status);
+const sendView = async (
+  res: Response,
+  session: ITableSession,
+  customerId: string,
+  message: string,
+  status = 200,
+  cart?: { state: ICartState } | null,
+  extra: Record<string, unknown> = {}
+) => {
+  const [orders, cartState] = await Promise.all([
+    TableSessionDM.getSessionOrders(session),
+    cart !== undefined ? cart?.state ?? null : LiveCartDM.getState(session),
+  ]);
+  sendSuccess(res, { ...toDinerView(session, orders, customerId, cartState), ...extra }, message, status);
 };
 
 const menuForTable = async (table: ITable) => ({
@@ -63,7 +82,11 @@ export const join = asyncHandler(async (req: Request, res: Response) => {
   const diner: IDiner = { ...dinerOf(req), profilePicture: customer?.profilePicture };
   const session = await TableSessionDM.joinTable(table, diner);
 
-  TablePublisher.tableChanged(table.restaurantId.toString(), table._id.toString(), diner.customerId);
+  TablePublisher.tableChanged(
+    table.restaurantId.toString(),
+    table._id.toString(),
+    memberKey(session._id.toString(), diner.customerId)
+  );
   await sendView(res, session, diner.customerId, TABLE_SESSION_MESSAGES.JOINED);
 });
 
@@ -74,57 +97,29 @@ export const getSession = asyncHandler(async (req: Request, res: Response) => {
   await sendView(res, session, customerId, TABLE_SESSION_MESSAGES.SESSION_FETCHED);
 });
 
-const afterCartChange = async (req: Request, res: Response) => {
-  const customerId = req.customer!.customerId;
-  const session = await TableSessionDM.getSessionForMember(sessionId(req), customerId);
-  TablePublisher.cartChanged(session.tableId.toString(), customerId);
-  await sendView(res, session, customerId, TABLE_SESSION_MESSAGES.CART_UPDATED);
-};
-
-/** "View only" menus (owner turned customer ordering off): diners can browse and call a waiter, not order. */
-const assertCustomerOrderingOn = async (req: Request): Promise<void> => {
-  const session = await TableSessionDM.getSessionForMember(sessionId(req), req.customer!.customerId);
-  if (!(await MenuDM.isCustomerOrderingEnabled(session.restaurantId.toString()))) {
-    throw createAppError(TABLE_SESSION_MESSAGES.ORDERING_DISABLED, 403);
-  }
-};
-
-/** POST /table-session/cart/add/:sessionId — add a dish to the shared cart. */
-export const addToCart = asyncHandler(async (req: Request, res: Response) => {
-  await assertCustomerOrderingOn(req);
-  await TableSessionDM.addToCart(sessionId(req), dinerOf(req), req.body);
-  await afterCartChange(req, res);
-});
-
-/** PATCH /table-session/cart/setQuantity/:sessionId — change (0 = remove) any line of the shared cart. */
-export const setCartQuantity = asyncHandler(async (req: Request, res: Response) => {
-  await TableSessionDM.setCartLineQuantity(sessionId(req), dinerOf(req), req.body.itemId, req.body.quantity);
-  await afterCartChange(req, res);
-});
-
-/** PUT /table-session/cart/setMine/:sessionId — the diner's menu-page picks, sent in one call. */
-export const setMyCart = asyncHandler(async (req: Request, res: Response) => {
-  await assertCustomerOrderingOn(req);
-  await TableSessionDM.setMyCartQuantities(sessionId(req), dinerOf(req), req.body.items);
-  await afterCartChange(req, res);
+/**
+ * PUT /table-session/cart/sync/:sessionId  { changes: [{ key, quantity }] } — the Cart tab was opened (or the
+ * phone's socket is down): apply the edits it still holds, save the cart to the DB, return the whole table.
+ * Taps on the menu normally travel over the socket instead (live-cart socket handlers).
+ */
+export const syncCart = asyncHandler(async (req: Request, res: Response) => {
+  const diner = dinerOf(req);
+  const session = await TableSessionDM.getSessionForMember(sessionId(req), diner.customerId);
+  const result = await LiveCartDM.sync(session, diner, req.body.changes);
+  await sendView(res, session, diner.customerId, TABLE_SESSION_MESSAGES.CART_UPDATED, 200, result, {
+    cartSkipped: result?.skipped ?? [],
+  });
 });
 
 /** POST /table-session/placeOrder/:sessionId — send the shared cart (at `cartVersion`) to the kitchen. */
 export const placeOrder = asyncHandler(async (req: Request, res: Response) => {
-  await assertCustomerOrderingOn(req);
   const diner = dinerOf(req);
-  const order = await TableSessionDM.placeCartOrder(
-    sessionId(req),
-    diner,
-    req.body.cartVersion,
-    req.body.specialInstructions
-  );
-  OrderPublisher.orderPlaced(order, diner.customerId);
-
   const session = await TableSessionDM.getSessionForMember(sessionId(req), diner.customerId);
+  if (session.status !== TableSessionStatus.OPEN) throw createAppError(TABLE_SESSION_MESSAGES.SESSION_CLOSED, 409);
+  const order = await LiveCartDM.placeOrder(session, diner, req.body.cartVersion, req.body.specialInstructions);
+  OrderPublisher.orderPlaced(order, memberKey(session._id.toString(), diner.customerId));
   await sendView(res, session, diner.customerId, TABLE_SESSION_MESSAGES.ORDER_PLACED, 201);
 });
-
 const raise = (type: TableAlertType, message: string) =>
   asyncHandler(async (req: Request, res: Response) => {
     const diner = dinerOf(req);
@@ -139,7 +134,7 @@ const raise = (type: TableAlertType, message: string) =>
       tableNumber: session.tableNumber,
       by: diner.name,
       at: new Date(),
-    }, diner.customerId);
+    }, memberKey(session._id.toString(), diner.customerId));
     await sendView(res, session, diner.customerId, message);
   });
 

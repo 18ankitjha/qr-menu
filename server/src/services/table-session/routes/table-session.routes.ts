@@ -12,12 +12,10 @@ import {
   joinSessionSchema,
   sessionIdParamSchema,
   restaurantIdParamSchema,
-  addToCartSchema,
-  setCartQuantitySchema,
-  setMyCartSchema,
   placeCartOrderSchema,
   clearAlertSchema,
 } from '../validators/table-session.validator';
+import { cartSyncSchema } from '../../live-cart';
 import * as TableSessionDM from '../dm/table-session.dm';
 import * as CustomerController from '../controllers/customer-session.controller';
 import * as StaffController from '../controllers/staff-session.controller';
@@ -48,31 +46,16 @@ router.post('/join', requireCustomer, validateBody(joinSessionSchema), CustomerC
 // GET /table-session/get/:sessionId
 router.get('/get/:sessionId', requireCustomer, validateParams(sessionIdParamSchema), CustomerController.getSession);
 
-// POST /table-session/cart/add/:sessionId  { dishId, quantity, notes? }
-router.post(
-  '/cart/add/:sessionId',
-  requireCustomer,
-  validateParams(sessionIdParamSchema),
-  validateBody(addToCartSchema),
-  CustomerController.addToCart
-);
+// Cart taps travel over the socket (live-cart service: join_cart_room / cart_set). REST is used when the
+// Cart tab opens, and as the fallback when the phone's socket is down.
 
-// PATCH /table-session/cart/setQuantity/:sessionId  { itemId, quantity }
-router.patch(
-  '/cart/setQuantity/:sessionId',
-  requireCustomer,
-  validateParams(sessionIdParamSchema),
-  validateBody(setCartQuantitySchema),
-  CustomerController.setCartQuantity
-);
-
-// PUT /table-session/cart/setMine/:sessionId  { items: [{ dishId, quantity }] } — menu-page picks in one call
+// PUT /table-session/cart/sync/:sessionId  { changes: [{ key: "<memberKey>.<dishId>", quantity }] }
 router.put(
-  '/cart/setMine/:sessionId',
+  '/cart/sync/:sessionId',
   requireCustomer,
   validateParams(sessionIdParamSchema),
-  validateBody(setMyCartSchema),
-  CustomerController.setMyCart
+  validateBody(cartSyncSchema),
+  CustomerController.syncCart
 );
 
 // POST /table-session/placeOrder/:sessionId  { cartVersion, specialInstructions? }

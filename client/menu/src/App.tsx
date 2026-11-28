@@ -2,14 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import * as TableSessionApi from './api/table-session.api';
 import { messageOf, statusOf } from './api/http';
-import { API_ENDPOINTS, MESSAGES } from './constants';
-import type { ITableMenu, ITableSession, TabId } from './types';
+import { API_ENDPOINTS, MAX_DISH_QUANTITY, MESSAGES } from './constants';
+import type { ICartChange, ITableMenu, ITableSession, TabId } from './types';
 import { parseTableLink, returnPathFor } from './utils/table-link.util';
 import { useCustomer } from './hooks/useCustomer';
 import { useTableSession } from './hooks/useTableSession';
-import { myPlainLine, useCartDraft } from './hooks/useCartDraft';
 import { useCooldown } from './hooks/useCooldown';
-import { isTempLine, withMyPicks, withQuantity } from './utils/cart.util';
+import { useLiveCart } from './live-cart';
 import Header from './components/Header';
 import SignInCard from './components/SignInCard';
 import LocationCard from './components/LocationCard';
@@ -22,7 +21,8 @@ import './index.css';
 
 // ============================================================
 // Customer Menu — opened by scanning a table's QR (/menu/t/<token>).
-// Anyone can browse; ordering needs Google sign-in. Everyone at the table shares one live cart and bill.
+// Anyone can browse; ordering needs Google sign-in. Everyone at the table shares one live cart and bill:
+// cart taps travel over the socket (live-cart/), everything else is a REST call (useTableSession).
 // ============================================================
 
 const ACTIVE_STATUSES = ['PLACED', 'CONFIRMED', 'COOKING', 'READY'];
@@ -33,7 +33,7 @@ const App = () => {
   const [loadError, setLoadError] = useState(link ? '' : MESSAGES.ERROR_BAD_LINK);
   const { customer, signOut } = useCustomer();
   const [tab, setTab] = useState<TabId>('menu');
-  const table = useTableSession(link, menu?.table._id, !!customer, tab !== 'menu', customer?._id);
+  const table = useTableSession(link, menu?.table._id, !!customer, tab !== 'menu');
   const { session, run, refresh } = table;
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
@@ -71,13 +71,25 @@ const App = () => {
     [run, refresh, notify]
   );
 
-  // ---------------- menu picks (local) → table cart (one call when the Cart tab opens)
+  // ---------------- the live table cart (socket); REST only when Cart opens and to place the order
 
-  const draft = useCartDraft(session);
   const dishes = useMemo(
     () => new Map((menu?.categories ?? []).flatMap((c) => c.dishes.map((d) => [d._id, d] as const))),
     [menu]
   );
+  const restSync = useCallback(
+    (changes: ICartChange[]) => run((id) => TableSessionApi.syncCart(id, changes)),
+    [run]
+  );
+  const cart = useLiveCart({
+    session,
+    dishes,
+    myName: customer?.name ?? '',
+    cartOpen: tab === 'cart',
+    restSync,
+    onError: (text) => notify(text, true),
+    onSkipped: () => notify(MESSAGES.SOME_UNAVAILABLE, true),
+  });
 
   const waiterCooldown = useCooldown(session?.waiterCallCooldownMs);
   const billCooldown = useCooldown(session?.billRequestCooldownMs);
@@ -98,77 +110,48 @@ const App = () => {
     fontFamily: theme.fontFamily,
   } as CSSProperties;
 
-  const cartCount = draft.cartCount;
+  const cartCount = cart.count;
   const activeOrders = session?.orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length ?? 0;
   const orderingEnabled = menu.menu.customerOrderingEnabled !== false;
   const canOrder = orderingEnabled && !!customer && session?.status === 'OPEN';
   const currentTab: TabId = !orderingEnabled && tab === 'cart' ? 'menu' : tab;
   const callWaiter = () => void act((id) => TableSessionApi.callWaiter(id), MESSAGES.WAITER_CALLED);
 
-  /** Menu −/+ : instant, local only. */
-  const setMine = (dishId: string, quantity: number) => {
+  /** Any −/+ (menu or cart): instant on this phone, on everyone's phone a moment later. */
+  const setLine = (key: string, quantity: number) => {
     if (!canOrder) {
       notify(customer ? MESSAGES.JOINING : MESSAGES.SIGN_IN_TITLE, !customer);
       return;
     }
-    draft.setMyQuantity(dishId, quantity);
+    cart.set(key, Math.min(MAX_DISH_QUANTITY, Math.max(0, quantity)));
   };
 
-  /** A change failed: say why and show the table as it really is. */
-  const undo = async (e: unknown) => {
-    notify(messageOf(e), true);
-    await refresh();
+  /** Menu −/+ edit this diner's own line for the dish. */
+  const setMine = (dishId: string, quantity: number) => {
+    if (cart.me) setLine(`${cart.me}.${dishId}`, quantity);
+    else setLine('', quantity); // not seated yet → explains why
   };
 
-  /** Tabs. Opening Cart moves the menu picks into the table cart: on screen at once, one call in the background. */
+  /** Tabs. Opening Cart saves the cart (one call, in the background) — the screen doesn't wait for it. */
   const openTab = (next: TabId) => {
-    const picks = draft.pending;
-    if (next === 'cart' && tab !== 'cart' && canOrder && customer && picks.length > 0) {
-      table.markFresh(); // this call's response is the fresh table — no extra read
-      table.optimistic((s) => withMyPicks(s, picks, dishes, customer.name));
-      draft.clear();
-      run((id) => TableSessionApi.setMyCart(id, picks))
-        .then((saved) => {
-          const leftOut = picks.some(
-            (i) => i.quantity > 0 && myPlainLine(saved.cart, i.dishId)?.quantity !== i.quantity
-          );
-          if (leftOut) notify(MESSAGES.SOME_UNAVAILABLE, true);
-        })
-        .catch((e) => {
-          picks.forEach((i) => draft.setMyQuantity(i.dishId, i.quantity)); // keep the picks for the next try
-          void undo(e);
-        });
-    }
+    if (next === 'cart' && tab !== 'cart' && canOrder) void cart.syncNow();
     setTab(next);
   };
 
-  /** Cart −/+ : instant on screen; calls go out in tap order in the background. */
-  const setQuantity = (lineId: string, quantity: number) => {
-    const qty = Math.max(0, quantity);
-    const dishId = session?.cart.find((l) => l._id === lineId)?.dishId;
-    table.optimistic((s) => withQuantity(s, lineId, qty));
-    run((id) => {
-      // A line shown before the server gave it an id → look up its real id now
-      const realId = isTempLine(lineId)
-        ? dishId && myPlainLine(table.serverView()?.cart ?? [], dishId)?._id
-        : lineId;
-      return realId ? TableSessionApi.setCartQuantity(id, realId, qty) : TableSessionApi.getSession(id);
-    }).catch(undo);
-  };
-
   const placeOrder = async (instructions: string) => {
-    // Queued after any −/+ still on its way, against the cart version those calls produced
-    const ok = await act(
-      (id) =>
-        TableSessionApi.placeOrder(
-          id,
-          table.serverView()?.cartVersion ?? session!.cartVersion,
-          instructions.trim() || undefined
-        ),
-      MESSAGES.ORDER_SENT
-    );
-    if (ok) setTab('orders');
-    return ok;
+    setBusy(true);
+    try {
+      const cartVersion = await cart.settle(); // every tap delivered first; the order is for exactly this cart
+      await run((id) => TableSessionApi.placeOrder(id, cartVersion, instructions.trim() || undefined));
+      notify(MESSAGES.ORDER_SENT);
+      setTab('orders');
+      return true;
+    } catch (e) {
+      notify(messageOf(e), true);
+      return false;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -228,15 +211,22 @@ const App = () => {
             {currentTab === 'menu' && (
               <MenuTab
                 menu={menu}
-                cart={session?.cart ?? []}
+                lines={cart.lines}
+                me={cart.me}
                 canAdd={orderingEnabled}
-                myQuantity={draft.myQuantity}
                 onSetMine={setMine}
               />
             )}
             {currentTab === 'cart' &&
               (session ? (
-                <CartTab session={session} busy={busy} onSetQuantity={setQuantity} onPlaceOrder={placeOrder} />
+                <CartTab
+                  lines={cart.lines}
+                  total={cart.total}
+                  me={cart.me}
+                  busy={busy}
+                  onSetQuantity={setLine}
+                  onPlaceOrder={placeOrder}
+                />
               ) : (
                 <SignInCard googleUrl={googleUrl} compact />
               ))}

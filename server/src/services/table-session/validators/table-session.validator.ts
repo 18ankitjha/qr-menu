@@ -32,24 +32,6 @@ export const sessionIdParamSchema = z.object({ sessionId: objectId('session ID')
 
 export const restaurantIdParamSchema = z.object({ restaurantId: objectId('restaurant ID') });
 
-export const addToCartSchema = z.object({
-  dishId: objectId('dish ID'),
-  quantity: z.number().int().min(1).max(50).default(1),
-  notes: z.string().trim().max(200).optional(),
-});
-
-export const setCartQuantitySchema = z.object({
-  itemId: objectId('cart item ID'),
-  quantity: z.number().int().min(0).max(50),
-});
-
-export const setMyCartSchema = z.object({
-  items: z
-    .array(z.object({ dishId: objectId('dish ID'), quantity: z.number().int().min(0).max(50) }))
-    .min(1)
-    .max(60),
-});
-
 export const placeCartOrderSchema = z.object({
   cartVersion: z.number().int().min(0),
   specialInstructions: z.string().trim().max(500).optional(),

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { sendSuccess } from '../../../utils/response.util';
 import { asyncHandler } from '../../../middlewares/error.middleware';
 import { TablePublisher } from '../../realtime';
+import { LiveCartDM } from '../../live-cart';
 import * as TableSessionDM from '../dm/table-session.dm';
 import { OrderDM } from '../../order';
 import { TABLE_SESSION_MESSAGES } from '../constants/table-session.constants';
@@ -32,6 +33,7 @@ export const clearAlert = asyncHandler(async (req: Request, res: Response) => {
 /** POST /table-session/close/:sessionId — clear a table whose diners left with nothing to bill. */
 export const close = asyncHandler(async (req: Request, res: Response) => {
   const session = await TableSessionDM.closeByStaff(req.params.sessionId as string);
+  await LiveCartDM.drop(session._id.toString());
   TablePublisher.tableChanged(session.restaurantId.toString(), session.tableId.toString());
   sendSuccess(res, toStaffView(session), TABLE_SESSION_MESSAGES.SESSION_CLOSED_BY_STAFF);
 });

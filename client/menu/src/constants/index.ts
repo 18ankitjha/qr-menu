@@ -17,9 +17,8 @@ const API_ENDPOINTS = {
 
   JOIN: '/table-session/join',
   GET_SESSION: (sessionId: string) => `/table-session/get/${sessionId}`,
-  CART_ADD: (sessionId: string) => `/table-session/cart/add/${sessionId}`,
-  CART_SET_QUANTITY: (sessionId: string) => `/table-session/cart/setQuantity/${sessionId}`,
-  CART_SET_MINE: (sessionId: string) => `/table-session/cart/setMine/${sessionId}`,
+  /** Cart tab opened (or no live connection): send edits still on the phone + save the cart. Taps use the socket. */
+  CART_SYNC: (sessionId: string) => `/table-session/cart/sync/${sessionId}`,
   PLACE_ORDER: (sessionId: string) => `/table-session/placeOrder/${sessionId}`,
   REQUEST_BILL: (sessionId: string) => `/table-session/requestBill/${sessionId}`,
   CALL_WAITER: (sessionId: string) => `/table-session/callWaiter/${sessionId}`,
@@ -35,12 +34,24 @@ const SYNC = {
 
 const STORAGE_KEYS = {
   SESSION: (tableId: string) => `qr_menu_session:${tableId}`,
-  /** Menu-page picks not yet sent to the table cart. */
-  DRAFT: (sessionId: string) => `qr_menu_draft:${sessionId}`,
+  /** Cart edits the server hasn't confirmed yet (survive a reload / lost connection). */
+  PENDING_CART: (sessionId: string) => `qr_menu_pending:${sessionId}`,
+  /** Old (pre live-cart) menu picks, dishId → quantity — read once and moved into PENDING_CART. */
+  LEGACY_DRAFT: (sessionId: string) => `qr_menu_draft:${sessionId}`,
 } as const;
 
 /** Most of one dish a diner can have on their line (server limit). */
 const MAX_DISH_QUANTITY = 50;
+
+const LIVE_CART = {
+  /** Taps within this window go out as one socket message. */
+  SEND_AFTER_MS: 250,
+  /** No answer from the server in this time → keep the edits and try again. */
+  ACK_TIMEOUT_MS: 5000,
+  RETRY_AFTER_MS: 3000,
+  /** Server limit on changes per message. */
+  MAX_CHANGES_PER_MESSAGE: 60,
+} as const;
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   PLACED: 'Order placed',
@@ -76,6 +87,10 @@ const MESSAGES = {
   TAB_ORDERS: 'Orders & bill',
 
   BTN_ADD: 'Add',
+  ADDED_BY_OTHERS: (quantity: number, names: string[]) =>
+    names.length
+      ? `+${quantity} added by ${names.map((n) => n.split(' ')[0]).join(', ')}`
+      : `+${quantity} added by others at your table`,
   MENU_EMPTY: 'The menu is being updated. Please ask your waiter.',
   CATEGORIES: 'Categories',
   SEARCH: 'Search',
@@ -116,4 +131,13 @@ const MESSAGES = {
   ALL: 'All',
 } as const;
 
-export { API_BASE_URL, API_ENDPOINTS, SYNC, STORAGE_KEYS, MAX_DISH_QUANTITY, ORDER_STATUS_LABELS, MESSAGES };
+export {
+  API_BASE_URL,
+  API_ENDPOINTS,
+  SYNC,
+  STORAGE_KEYS,
+  MAX_DISH_QUANTITY,
+  LIVE_CART,
+  ORDER_STATUS_LABELS,
+  MESSAGES,
+};

@@ -1,26 +1,40 @@
 import { useState } from 'react';
 import { MESSAGES } from '../constants';
-import type { ICartLine, ITableSession } from '../types';
+import type { ICartLine } from '../types';
 import { money } from '../utils/format.util';
 
 interface Props {
-  session: ITableSession;
+  /** The live table cart (everyone's lines, with this phone's taps on top). */
+  lines: ICartLine[];
+  total: number;
+  /** This diner's member key — their lines are `<me>.<dishId>`. */
+  me?: string;
   busy: boolean;
-  onSetQuantity: (lineId: string, quantity: number) => void;
+  onSetQuantity: (key: string, quantity: number) => void;
   onPlaceOrder: (specialInstructions: string) => Promise<boolean>;
 }
 
+/** Who added a line: the member-key part of `<memberKey>.<dishId>`. */
+const ownerOf = (line: ICartLine): string => line.key.split('.')[0];
+
 /** The table's shared cart, grouped by who added what. Anyone can change any line or send it. */
-const CartTab = ({ session, busy, onSetQuantity, onPlaceOrder }: Props) => {
+const CartTab = ({ lines, total, me, busy, onSetQuantity, onPlaceOrder }: Props) => {
   const [instructions, setInstructions] = useState('');
 
-  if (session.cart.length === 0) return <p className="empty-note">{MESSAGES.CART_EMPTY}</p>;
+  if (lines.length === 0) return <p className="empty-note">{MESSAGES.CART_EMPTY}</p>;
 
-  const byPerson = session.cart.reduce<Map<string, ICartLine[]>>((groups, line) => {
-    const key = line.addedBy.isMe ? `${line.addedBy.name} (${MESSAGES.YOU})` : line.addedBy.name;
-    groups.set(key, [...(groups.get(key) ?? []), line]);
-    return groups;
+  // Grouped by member (not name — two diners can share a name); this diner first
+  const groups = lines.reduce<Map<string, { title: string; lines: ICartLine[] }>>((byOwner, line) => {
+    const owner = ownerOf(line);
+    const group = byOwner.get(owner) ?? {
+      title: owner === me ? `${line.by} (${MESSAGES.YOU})` : line.by,
+      lines: [],
+    };
+    group.lines.push(line);
+    byOwner.set(owner, group);
+    return byOwner;
   }, new Map());
+  const ordered = [...groups.entries()].sort(([a], [b]) => Number(b === me) - Number(a === me));
 
   const place = async () => {
     if (await onPlaceOrder(instructions)) setInstructions('');
@@ -29,22 +43,32 @@ const CartTab = ({ session, busy, onSetQuantity, onPlaceOrder }: Props) => {
   return (
     <section className="panel">
       <p className="panel-note">{MESSAGES.CART_SHARED_NOTE}</p>
-      {[...byPerson.entries()].map(([person, lines]) => (
-        <div key={person} className="cart-group">
-          <h3 className="cart-group-title">{person}</h3>
-          {lines.map((line) => (
-            <div key={line._id} className="cart-item">
+      {ordered.map(([owner, group]) => (
+        <div key={owner} className="cart-group">
+          <h3 className="cart-group-title">{group.title}</h3>
+          {group.lines.map((line) => (
+            <div key={line.key} className="cart-item">
               <div className="cart-item-info">
                 <span className="cart-item-name">{line.dishName}</span>
                 {line.notes && <span className="cart-item-notes">“{line.notes}”</span>}
                 <span className="cart-item-price">{money(line.price * line.quantity)}</span>
               </div>
               <div className="qty-control qty-control--sm">
-                <button className="qty-btn" disabled={busy} onClick={() => onSetQuantity(line._id, line.quantity - 1)}>
+                <button
+                  className="qty-btn"
+                  disabled={busy}
+                  onClick={() => onSetQuantity(line.key, line.quantity - 1)}
+                  aria-label="Remove one"
+                >
                   −
                 </button>
                 <span className="qty-value">{line.quantity}</span>
-                <button className="qty-btn" disabled={busy} onClick={() => onSetQuantity(line._id, line.quantity + 1)}>
+                <button
+                  className="qty-btn"
+                  disabled={busy}
+                  onClick={() => onSetQuantity(line.key, line.quantity + 1)}
+                  aria-label="Add one"
+                >
                   +
                 </button>
               </div>
@@ -61,7 +85,7 @@ const CartTab = ({ session, busy, onSetQuantity, onPlaceOrder }: Props) => {
       />
       <div className="cart-total">
         <span>Total</span>
-        <span className="cart-total-amount">{money(session.cartTotal)}</span>
+        <span className="cart-total-amount">{money(total)}</span>
       </div>
       <button className="btn-primary" onClick={place} disabled={busy}>
         {MESSAGES.BTN_PLACE_ORDER}

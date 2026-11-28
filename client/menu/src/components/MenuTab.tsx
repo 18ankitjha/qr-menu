@@ -6,11 +6,11 @@ import { thumbUrl } from '../utils/image.util';
 
 interface Props {
   menu: ITableMenu;
-  /** The table cart as last fetched — for "added by others". */
-  cart: ICartLine[];
+  /** The live table cart (everyone's picks, with this phone's taps on top). */
+  lines: ICartLine[];
+  /** This diner's member key — their lines are `<me>.<dishId>`. */
+  me?: string;
   canAdd: boolean;
-  /** This diner's quantity of a dish (their picks on this phone, else what's in the table cart). */
-  myQuantity: (dishId: string) => number;
   onSetMine: (dishId: string, quantity: number) => void;
 }
 
@@ -35,9 +35,9 @@ const matches = (dish: IDish, diet: DietFilter, query: string) => {
 
 /**
  * The menu as collapsible category cards, with a category icon strip and Search / Veg / Non-veg filters.
- * −/+ only change this phone's picks (instant); they reach the table cart when the Cart tab opens.
+ * −/+ edit this diner's line in the live table cart: instant here, on everyone's phone a moment later.
  */
-const MenuTab = ({ menu, cart, canAdd, myQuantity, onSetMine }: Props) => {
+const MenuTab = ({ menu, lines, me, canAdd, onSetMine }: Props) => {
   const categories = useMemo(
     () =>
       menu.categories
@@ -51,6 +51,22 @@ const MenuTab = ({ menu, cart, canAdd, myQuantity, onSetMine }: Props) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
+
+  // dishId → { mine, others, who } from the live cart
+  const quantities = useMemo(() => {
+    const byDish = new Map<string, { mine: number; others: number; names: string[] }>();
+    for (const line of lines) {
+      const entry = byDish.get(line.dishId) ?? { mine: 0, others: 0, names: [] };
+      if (me && line.key === `${me}.${line.dishId}`) {
+        entry.mine += line.quantity;
+      } else {
+        entry.others += line.quantity;
+        if (!entry.names.includes(line.by)) entry.names.push(line.by);
+      }
+      byDish.set(line.dishId, entry);
+    }
+    return byDish;
+  }, [lines, me]);
 
   const visible = useMemo(
     () =>
@@ -158,15 +174,13 @@ const MenuTab = ({ menu, cart, canAdd, myQuantity, onSetMine }: Props) => {
                 <div className="cat-card-body dish-container dish-container--list">
                   {cat.description && <p className="cat-card-desc">{cat.description}</p>}
                   {cat.dishes.map((dish) => {
-                    const othersQuantity = cart
-                      .filter((l) => l.dishId === dish._id && !(l.addedBy.isMe && !l.notes))
-                      .reduce((sum, l) => sum + l.quantity, 0);
-                    const mine = myQuantity(dish._id);
+                    const { mine = 0, others = 0, names = [] } = quantities.get(dish._id) ?? {};
                     return (
                       <DishCard
                         key={dish._id}
                         dish={dish}
-                        othersQuantity={othersQuantity}
+                        othersQuantity={others}
+                        othersNames={names}
                         myQuantity={mine}
                         canAdd={canAdd}
                         onAdd={() => onSetMine(dish._id, mine + 1)}

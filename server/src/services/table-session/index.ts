@@ -5,5 +5,15 @@
 // ============================================================
 
 export * as TableSessionDM from './dm/table-session.dm';
-export { TableSessionStatus, TableAlertType } from './constants/table-session.constants';
-export type { ITableSession, ICartLine, IDiner } from './interfaces/table-session.interface';
+export {
+  TableSessionStatus,
+  TableAlertType,
+  TABLE_SESSION_MESSAGES,
+  TABLE_SESSION_LIMITS,
+} from './constants/table-session.constants';
+export type {
+  ITableSession,
+  ICartLine,
+  ICartSnapshotLine,
+  IDiner,
+} from './interfaces/table-session.interface';

@@ -357,7 +357,7 @@ Login: restaurant code (6 digits) + username + PIN. A waiter can: see all orders
 | `GET /table-session/resolve/:restaurantId/:tableId` | public | Old QR links; **410** once the table has a token |
 | `POST /table-session/join` | customer | `{qrToken \| restaurantId+tableId, gpsCoordinates?}` |
 | `GET /table-session/get/:sessionId` | member | Members, cart, orders, alerts |
-| `POST /table-session/cart/add/:sessionId` · `PATCH /cart/setQuantity/:sessionId` | member | Quantity 0 removes the line |
+| `PUT /table-session/cart/sync/:sessionId` | member | `{changes:[{key, quantity}]}` — Cart open / socket-down fallback (§6d.14). Old `cart/add`, `setQuantity`, `setMine` removed |
 | `POST /table-session/placeOrder/:sessionId` | member | `{cartVersion, specialInstructions?}` |
 | `POST /table-session/requestBill/:sessionId` · `POST /callWaiter/:sessionId` | member | Alerts staff |
 | `GET /table-session/getOpen/:restaurantId` | owner/waiter | Occupied tables + alerts + `unbilledOrders` count per table |
@@ -547,7 +547,8 @@ Pushes are small signals (ids + status). Screens refetch over REST, so permissio
 | `tables_updated` | restaurant | diners join, alert raised/cleared, table cleared (**not** cart edits) | table alerts banner |
 | `table_alert` | restaurant | diner calls waiter / asks for bill | TableAlertNotifier (rings twice) |
 | `restaurant_updated` | restaurant | super admin approves / suspends | Dashboard approval wait |
-| `table_session_updated` | table | cart (table only), order, bill, staff close | customer menu (Cart / Orders tabs) |
+| `table_session_updated` | table | order, bill, alerts, members, staff close (cart has its own room, §6d.14) | customer menu (Cart / Orders tabs) |
+| `cart_updated` | cart | any cart change — carries the whole cart `{version, lines}` | customer menu (Menu + Cart tabs) |
 
 **Code layout.**
 - Server `services/realtime/`: `constants/` (event + room names), `interfaces/` (signal shapes),
@@ -581,6 +582,9 @@ load + catch-up once live).
 
 ### 6d.12 Menu picks stay on the phone, staff see orders only, call-waiter cooldown
 
+> **Cart parts replaced by §6d.14** (live cart over the socket). Staff-don't-see-carts, paid-order buttons and the
+> cooldown still apply.
+
 **Menu −/+ is local.** On the Menu tab, Add / − / + only change a draft on the phone
 (`client/menu/src/hooks/useCartDraft.ts`, saved in localStorage as `qr_menu_draft:<sessionId>`, so a reload keeps
 it). No API call, so it's instant. When the diner opens the **Cart** tab, `App.tsx` sends the changed picks in ONE
@@ -605,6 +609,8 @@ filter, so a second call within 5 min → **429** "…You can ask again in N min
 "again in m:ss". Change the gap with `ALERT_COOLDOWN_MS` in `table-session.constants.ts`.
 
 ### 6d.13 Instant Cart: optimistic updates, no echo refetch, fewer reads
+
+> **Cart parts replaced by §6d.14.** The no-echo, stale-flag and error rules below still apply to the table room.
 
 **Optimistic.** The screen changes first; the call goes in the background (`useTableSession.optimistic()` +
 `run()`). `run()` sends table calls one at a time in tap order, so the server ends up where the screen is; the
@@ -632,6 +638,56 @@ instead of "Something went wrong".
 the 60 ms; optimistic UI hides the whole round trip. Add Redis when running more than one API instance (Socket.IO
 adapter) or under heavy load.
 
+### 6d.14 Live table cart: memory + socket, DB snapshots
+
+**Why.** With picks kept on the phone (§6d.12), diner 2 on the Menu tab couldn't see diner 1's picks until diner 1
+opened Cart. Now every tap is shared live, and the Menu card shows "+2 added by Asha".
+
+**Flow.**
+```
+phone tap ─(250 ms batch)─ socket cart_set ─► live-cart service (memory, per session, locked)
+                                                 │  publish cart_updated {version, lines} to room cart:<sessionId>
+                                                 ▼  (every phone at the table, sender included; then ack)
+                                         every phone's LiveCartStore.accept()
+Mongo snapshot: PUT cart/sync on Cart open · every 30 s if changed · before placeOrder · on shutdown
+placeOrder (REST) → saves the cart, checks cartVersion, creates the order, empties the cart → cart_updated []
+```
+
+**Server — `services/live-cart/`.**
+- `store/cart.store.ts` — in-memory `Map` (swap for Redis to run several API instances; keep the same methods).
+- `dm/live-cart.dm.ts` — per-session lock, load from Mongo on first use, apply changes, time-based `version`
+  (`max(v+1, now)` so it never goes back after a restart), 30 s write-behind sweeper, evict after 2 h idle,
+  `placeOrder` / `restore`, `flushAll` (shutdown), `drop` (session closed by bill or staff).
+- `socket/cart.handlers.ts` — `join_cart_room` (diner cookie + member of the session), `leave_cart_room`,
+  `cart_set {sessionId, changes}` → ack `{ok, version, skipped}`; rate limited (`TOO_MANY_REQUESTS`).
+- `dm/dish-cache.ts` — dish name/price/availability for new lines (short cache).
+- Line key = `<memberKey>.<dishId>`; memberKey = first 12 hex of sha256(`sessionId:customerId`). Only the owner
+  can create their line; anyone at the table can change or remove existing lines.
+- `PUT /table-session/cart/sync/:sessionId {changes}` — same rules over REST; returns the full diner view (+ `me`,
+  `cartSkipped`). Old `cart/add`, `cart/setQuantity`, `cart/setMine` are gone.
+
+**Menu app — `client/menu/src/live-cart/`.**
+- `live-cart.store.ts` — plain class (no React). `server` state + `pending` edits; pending is backed up in
+  localStorage `qr_menu_pending:<sessionId>` (survives reload / offline). Sends are one at a time; socket when live,
+  REST while the Cart tab is open and the socket is down, otherwise edits wait on the phone. Timeout / rate limit →
+  retry (max 3). `syncNow()` = Cart open; `settle()` = before an order.
+- `useLiveCart.ts` — React glue (`useSyncExternalStore`), holds the `cart:<sessionId>` room, shows server lines
+  with this phone's pending edits on top.
+- Menu and Cart tabs both read `cart.lines`; the Cart groups lines by owner ("(you)" first).
+- `useTableSession.run()` clears the stale flag when its request starts (the reply is the full view), so opening
+  Cart costs exactly 1 call.
+
+**API calls (measured, 2 diners).** Menu taps: 0 HTTP. Cart open: 1 PUT. Cart −/+: 0 HTTP. Place order: PUT + POST.
+Offline tap → kept on phone → reload online → sent and seen by the other diner.
+
+**Limits.** Memory cart = one API instance (Render free is one). For more instances add a Redis cart store + a
+distributed lock, and the Socket.IO Redis adapter. If the server crashes (not a normal restart), up to 30 s of
+cart edits can be lost; phones still hold their unsent edits.
+
+**Debug.** `localStorage.setItem('qr:realtime-debug','1')` logs `cart_set` / `cart_updated`. Server logs
+`[live-cart]` warnings when a snapshot save fails (retried next sweep) or a cart can't be restored after a failed
+order. Dish details are cached 60 s (`DISH_CACHE_MS`).
+
 ---
 
 ## 7. Decisions made
@@ -654,6 +710,7 @@ adapter) or under heavy load.
 | QR link | `/menu/t/<random qrToken>`, not raw ids; rotating the token kills the printed QR |
 | Customer login | Google only (free). Separate `Customer` collection + cookie; browsing the menu needs no login |
 | Several diners at one table | One table session + one shared cart; items tagged by person; anyone can place; `cartVersion` stops double orders |
+| Shared cart storage | Live cart in server memory, edited over the socket, saved to Mongo as snapshots (Cart open, every 30 s, before an order, on shutdown). One API instance only until a Redis cart store is added |
 | Table session lifetime | Opened by the first diner, closed when the bill is generated (or idle 4 h with nothing unbilled, or staff close) |
 | Customer live sync | Socket "changed" ping to `table:<id>` + REST refetch, polling fallback (no order data over the socket) |
 | Live updates (all apps) | Socket.IO first; services publish via `services/realtime` publishers; clients poll only while the socket is down; Redis adapter when scaling out |

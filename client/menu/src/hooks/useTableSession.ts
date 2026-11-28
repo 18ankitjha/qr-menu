@@ -10,8 +10,8 @@ import { useTableSync } from './useTableSync';
 // useTableSession — the diner's seat at the table.
 // Resumes the session saved on this phone, otherwise joins the table's open session (or opens one).
 // Every response carries the whole table view, so the latest one simply replaces the state.
-// Changes are optimistic: `optimistic()` updates the screen at once, `run()` sends the call in the
-// background. Calls go out one at a time, in tap order, so the server ends up exactly where the screen is.
+// `run()` sends table actions one at a time, in order. Cart taps don't come through here — they go over
+// the socket (see live-cart/), so the cart on screen never waits for these calls.
 // ============================================================
 
 const readStored = (tableId: string): string | null => {
@@ -41,9 +41,7 @@ export const useTableSession = (
   tableId: string | undefined,
   signedIn: boolean,
   /** The Cart / Orders tab is on screen — refetch on others' changes. On the Menu tab they only mark it stale. */
-  visible: boolean,
-  /** This diner's customer id — pushes caused by their own actions are skipped. */
-  myId: string | undefined
+  visible: boolean
 ) => {
   const [session, setSession] = useState<ITableSession | null>(null);
   const [joining, setJoining] = useState(false);
@@ -52,8 +50,6 @@ export const useTableSession = (
   const [locationProblem, setLocationProblem] = useState<LocationProblem | null>(null);
   const latest = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
-  /** The newest table view the server has sent (screen may be ahead of it with optimistic changes). */
-  const server = useRef<ITableSession | null>(null);
   /** The table changed since we last fetched it (see useTableSync). */
   const stale = useRef(false);
   const visibleRef = useRef(visible);
@@ -65,8 +61,6 @@ export const useTableSession = (
   const track = useCallback(() => {
     const seq = ++latest.current;
     return (next: ITableSession) => {
-      const known = server.current;
-      if (!known || known._id !== next._id || next.cartVersion >= known.cartVersion) server.current = next;
       if (seq !== latest.current) return;
       sessionIdRef.current = next._id;
       setSession(next);
@@ -134,7 +128,7 @@ export const useTableSession = (
     };
   }, [signedIn, tableId, join, track]);
 
-  // ---------------- changes: one at a time, in tap order
+  // ---------------- actions: one at a time, in order
 
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const inFlight = useRef(0);
@@ -163,6 +157,9 @@ export const useTableSession = (
         const sessionId = sessionIdRef.current;
         if (!sessionId) throw new Error('Not at a table yet');
         const apply = track();
+        // The reply is the full table view, fresher than anything marked stale before this request.
+        // Pushes that land while it's in flight mark it stale again → one catch-up read afterwards.
+        stale.current = false;
         const next = await action(sessionId);
         apply(next);
         return next;
@@ -182,26 +179,17 @@ export const useTableSession = (
     [track, refresh]
   );
 
-  /** Show a change at once; pair it with run() — that call's response (or a refetch on error) settles it. */
-  const optimistic = useCallback((update: (session: ITableSession) => ITableSession) => {
-    latest.current++; // responses already on their way are older than this screen
-    setSession((s) => (s ? update(s) : s));
-  }, []);
-
-  /** The newest table view from the server (real line ids, current cart version). */
-  const serverView = useCallback(() => server.current, []);
-
-  /** The screen is about to be brought up to date by a call we're making — skip the catch-up read. */
-  const markFresh = useCallback(() => {
-    stale.current = false;
-  }, []);
-
-  const live = useTableSync({ tableId: session ? tableId : undefined, visible, myId, staleRef: stale, refresh });
+  const live = useTableSync({
+    tableId: session ? tableId : undefined,
+    visible,
+    me: session?.me,
+    staleRef: stale,
+    refresh,
+  });
 
   const reset = useCallback(() => {
     latest.current++;
     sessionIdRef.current = null;
-    server.current = null;
     setSession(null);
   }, []);
 
@@ -214,9 +202,6 @@ export const useTableSession = (
     join,
     refresh,
     run,
-    optimistic,
-    serverView,
-    markFresh,
     reset,
   };
 };

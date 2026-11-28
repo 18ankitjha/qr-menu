@@ -21,6 +21,7 @@ import { OrderDM, IOrder } from '../../order';
 import { TableDM, ITable } from '../../table';
 import { RestaurantDM, IBillingSettings } from '../../restaurant';
 import { TableSessionDM } from '../../table-session';
+import { LiveCartDM } from '../../live-cart';
 import { logger } from '../../../utils/logger';
 
 // ============================================================
@@ -143,9 +144,11 @@ export const generateTableBill = async (tableId: string, generatedBy: string): P
       logger.warn(`Could not close cancelled orders for bill ${billId.toString()}`, error)
     );
     // The diners' table session ends with this bill; the next scan of the QR starts a fresh cart.
-    await TableSessionDM.closeForBill(tableId, billId.toString()).catch((error) =>
-      logger.warn(`Could not close the table session for bill ${billId.toString()}`, error)
-    );
+    await TableSessionDM.closeForBill(tableId, billId.toString())
+      .then((closed) => closed && LiveCartDM.drop(closed._id.toString()))
+      .catch((error) =>
+        logger.warn(`Could not close the table session for bill ${billId.toString()}`, error)
+      );
     return bill.toObject() as unknown as IBill;
   } catch (error) {
     await OrderDM.unmarkOrdersBilled(billId.toString());
